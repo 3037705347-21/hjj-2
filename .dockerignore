@@ -1,0 +1,14 @@
+frontend/node_modules
+frontend/dist
+frontend/.git
+frontend/.vscode
+frontend/.idea
+frontend*.log
+frontend.DS_Store
+.git
+.vscode
+.idea
+*.log
+.DS_Store
+node_modules
+dist

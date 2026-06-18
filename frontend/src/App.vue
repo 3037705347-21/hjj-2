@@ -6,7 +6,7 @@ import {
   ClipboardList,
   Users,
   Settings,
-  Tooth,
+  HeartPulse,
   Package,
   BarChart3,
   Menu,
@@ -112,7 +112,7 @@ function toggleSidebar() {
         <div
           class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20 flex-shrink-0"
         >
-          <Tooth class="w-5 h-5 text-white" />
+          <HeartPulse class="w-5 h-5 text-white" />
         </div>
         <div
           class="min-w-0 transition-all"

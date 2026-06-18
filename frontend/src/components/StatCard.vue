@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, Component } from 'vue'
+import { computed, type Component } from 'vue'
 import { cn } from '../lib/utils'
 import type { LucideIcon } from 'lucide-vue-next'
 

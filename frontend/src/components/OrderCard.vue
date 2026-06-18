@@ -31,7 +31,7 @@ const daysToDelivery = Math.ceil(
 const isDelayed =
   daysToDelivery < 0 &&
   props.order.status !== 'completed' &&
-  props.order.status !== 'delivered'
+  props.order.currentStage !== 'delivered'
 
 const isDueSoon =
   daysToDelivery >= 0 &&
