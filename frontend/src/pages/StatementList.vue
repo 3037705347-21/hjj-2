@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   FileText,
@@ -54,6 +54,10 @@ const pageSize = 10
 const currentPage = ref(1)
 const expandedRows = ref<Set<string>>(new Set())
 
+watch(filters, () => {
+  currentPage.value = 1
+})
+
 const showConfirmDialog = ref(false)
 const showPaidDialog = ref(false)
 const targetStatement = ref<Statement | null>(null)
@@ -80,7 +84,7 @@ const paginatedStatements = computed(() => {
 })
 
 const stats = computed(() => {
-  const list = statements.value
+  const list = filteredStatements.value
   const total = list.length
   const pending = list.filter((s) => s.status === 'pending').length
   const paid = list.filter((s) => s.status === 'paid').length
@@ -95,6 +99,10 @@ function resetFilters() {
   filters.month = ''
   filters.status = ''
   filters.invoiceStatus = ''
+  currentPage.value = 1
+}
+
+function handleSearch() {
   currentPage.value = 1
 }
 
@@ -121,8 +129,8 @@ function formatCurrency(amount: number): string {
   return `¥${amount.toLocaleString()}`
 }
 
-function goToDetail(id: string) {
-  router.push(`/statement/${id}`)
+function goToDetail(statement: Statement) {
+  router.push(`/settlement/${statement.clinicId}/${statement.month}`)
 }
 
 function openConfirmDialog(statement: Statement) {
@@ -310,6 +318,7 @@ onMounted(() => {
           <button
             type="button"
             class="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+            @click="handleSearch"
           >
             <Search class="w-4 h-4" />
             搜索
@@ -440,7 +449,7 @@ onMounted(() => {
                       type="button"
                       class="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
                       title="查看详情"
-                      @click="goToDetail(statement.id)"
+                      @click="goToDetail(statement)"
                     >
                       <Eye class="w-4 h-4" />
                     </button>

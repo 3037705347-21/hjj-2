@@ -20,6 +20,8 @@ import {
   MaterialTypeLabels,
   PriorityLabels,
   SettlementMethodLabels,
+  StatementStatusLabels,
+  InvoiceStatusLabels,
 } from '../types'
 import { MockPriceRules, MockQuotes, MockStatements, MockMonthlySettlements } from '../mock/pricing'
 import { useOrders } from './useOrders'
@@ -254,12 +256,63 @@ export function usePricing() {
     return newQuote
   }
 
+  function syncQuoteToStatements(orderId: string): void {
+    const quote = quotes.value.find((q) => q.orderId === orderId)
+    if (!quote) return
+
+    statements.value.forEach((statement, sIdx) => {
+      const itemIdx = statement.items.findIndex((i) => i.orderId === orderId)
+      if (itemIdx === -1) return
+
+      statement.items[itemIdx].totalAmount = quote.totalAmount
+      statement.totalAmount = statement.items.reduce((s, i) => s + i.totalAmount, 0)
+
+      const orderIdsInStatement = statement.items.map((i) => i.orderId)
+      const relatedQuotes = quotes.value.filter((q) => orderIdsInStatement.includes(q.orderId))
+      statement.paidAmount = relatedQuotes.reduce((s, q) => s + q.receivedAmount, 0)
+      statement.unpaidAmount = statement.totalAmount - statement.paidAmount
+
+      const allQuotesPaid =
+        relatedQuotes.length > 0 && relatedQuotes.every((q) => q.invoiceStatus === 'paid')
+      const anyQuotePartial = relatedQuotes.some((q) => q.invoiceStatus === 'partial')
+      const anyQuoteIssued = relatedQuotes.some(
+        (q) => q.invoiceStatus === 'issued' || q.invoiceStatus === 'paid'
+      )
+
+      if (allQuotesPaid) {
+        statement.invoiceStatus = 'paid'
+      } else if (anyQuotePartial) {
+        statement.invoiceStatus = 'partial'
+      } else if (anyQuoteIssued) {
+        statement.invoiceStatus = 'issued'
+      } else {
+        statement.invoiceStatus = 'unissued'
+      }
+
+      if (statement.unpaidAmount === 0 && statement.totalAmount > 0) {
+        statement.status = 'paid'
+      } else if (statement.status === 'paid' && statement.unpaidAmount > 0) {
+        statement.status = 'confirmed'
+      }
+
+      statement.updatedAt = formatDate(new Date())
+      statements.value[sIdx] = { ...statement }
+    })
+  }
+
+  function syncAllStatements(): void {
+    const statementOrderIds = new Set<string>()
+    statements.value.forEach((s) => {
+      s.items.forEach((i) => statementOrderIds.add(i.orderId))
+    })
+    statementOrderIds.forEach((oid) => syncQuoteToStatements(oid))
+  }
+
   function updateQuoteAmount(orderId: string, totalAmount: number): OrderQuote | undefined {
     const idx = quotes.value.findIndex((q) => q.orderId === orderId)
     if (idx === -1) return undefined
 
     const quote = quotes.value[idx]
-    const diff = totalAmount - quote.totalAmount
     quote.totalAmount = totalAmount
     quote.unpaidAmount = totalAmount - quote.receivedAmount
     quote.updatedAt = formatDate(new Date())
@@ -267,6 +320,8 @@ export function usePricing() {
 
     const { updateOrder } = useOrders()
     updateOrder(orderId, { totalAmount })
+
+    syncQuoteToStatements(orderId)
 
     return quote
   }
@@ -285,6 +340,8 @@ export function usePricing() {
     quote.invoiceStatus = invoiceStatus
     quote.updatedAt = formatDate(new Date())
     quotes.value[idx] = { ...quote }
+
+    syncQuoteToStatements(orderId)
 
     return quote
   }
@@ -502,12 +559,12 @@ export function usePricing() {
       s.statementNumber,
       s.clinicName,
       s.month,
-      s.status,
+      StatementStatusLabels[s.status] || s.status,
       s.orderCount,
       s.totalAmount,
       s.paidAmount,
       s.unpaidAmount,
-      s.invoiceStatus,
+      InvoiceStatusLabels[s.invoiceStatus] || s.invoiceStatus,
       s.invoiceNumber || '',
       s.dueDate,
       s.paymentDate || '',
@@ -622,6 +679,8 @@ export function usePricing() {
 
     const { updateOrder } = useOrders()
     updateOrder(orderId, { totalAmount: quote.totalAmount })
+
+    syncQuoteToStatements(orderId)
   }
 
   function refreshAllQuotes(): void {
@@ -630,6 +689,8 @@ export function usePricing() {
       refreshQuotesForOrder(order.id)
     })
   }
+
+  syncAllStatements()
 
   return {
     priceRules,
@@ -660,5 +721,7 @@ export function usePricing() {
     refreshQuotesForOrder,
     refreshAllQuotes,
     generatePriceRuleName,
+    syncQuoteToStatements,
+    syncAllStatements,
   }
 }
