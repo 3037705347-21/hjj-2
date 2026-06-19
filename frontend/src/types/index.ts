@@ -129,6 +129,126 @@ export const OrderStatusLabels: Record<OrderStatus, string> = {
   'returned': '已返工',
 }
 
+export type ReworkStatus =
+  | 'initiated'
+  | 'accepted'
+  | 'rectifying'
+  | 'rechecking'
+  | 'closed'
+
+export const ReworkStatusLabels: Record<ReworkStatus, string> = {
+  'initiated': '待受理',
+  'accepted': '已受理',
+  'rectifying': '整改中',
+  'rechecking': '复检中',
+  'closed': '已关闭',
+}
+
+export const ReworkStatusColors: Record<ReworkStatus, string> = {
+  'initiated': 'bg-amber-50 text-amber-700 border-amber-200',
+  'accepted': 'bg-blue-50 text-blue-700 border-blue-200',
+  'rectifying': 'bg-orange-50 text-orange-700 border-orange-200',
+  'rechecking': 'bg-violet-50 text-violet-700 border-violet-200',
+  'closed': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+}
+
+export type ReworkSourceStage =
+  | 'model-scanning'
+  | 'wax-up'
+  | 'casting'
+  | 'porcelain'
+  | 'glazing'
+  | 'finishing'
+  | 'quality-check'
+  | 'clinic-return'
+
+export const ReworkSourceStageLabels: Record<ReworkSourceStage, string> = {
+  'model-scanning': '模型扫描',
+  'wax-up': '蜡型制作',
+  'casting': '铸造/切削',
+  'porcelain': '烤瓷堆瓷',
+  'glazing': '上釉烧结',
+  'finishing': '精磨修整',
+  'quality-check': '质检审核',
+  'clinic-return': '诊所退回',
+}
+
+export type ReworkProblemType =
+  | 'edge-misfit'
+  | 'color-mismatch'
+  | 'occlusion-issue'
+  | 'shape-error'
+  | 'material-defect'
+  | 'design-error'
+  | 'other'
+
+export const ReworkProblemTypeLabels: Record<ReworkProblemType, string> = {
+  'edge-misfit': '边缘不密合',
+  'color-mismatch': '颜色偏差',
+  'occlusion-issue': '咬合问题',
+  'shape-error': '形态错误',
+  'material-defect': '材料缺陷',
+  'design-error': '设计失误',
+  'other': '其他问题',
+}
+
+export type ReworkRootCause =
+  | 'technician-error'
+  | 'material-issue'
+  | 'equipment-problem'
+  | 'design-flaw'
+  | 'impression-quality'
+  | 'clinic-requirement-change'
+  | 'other'
+
+export const ReworkRootCauseLabels: Record<ReworkRootCause, string> = {
+  'technician-error': '技师操作失误',
+  'material-issue': '材料质量问题',
+  'equipment-problem': '设备故障',
+  'design-flaw': '设计缺陷',
+  'impression-quality': '印模/扫描质量差',
+  'clinic-requirement-change': '诊所需求变更',
+  'other': '其他原因',
+}
+
+export type ReworkResponsibility =
+  | 'modeling-tech'
+  | 'wax-tech'
+  | 'casting-tech'
+  | 'porcelain-tech'
+  | 'glazing-tech'
+  | 'finishing-tech'
+  | 'qc-personnel'
+  | 'design-department'
+  | 'other'
+
+export const ReworkResponsibilityLabels: Record<ReworkResponsibility, string> = {
+  'modeling-tech': '扫描/模型技师',
+  'wax-tech': '蜡型技师',
+  'casting-tech': '铸造/切削技师',
+  'porcelain-tech': '烤瓷技师',
+  'glazing-tech': '上釉技师',
+  'finishing-tech': '精磨技师',
+  'qc-personnel': '质检人员',
+  'design-department': '设计部门',
+  'other': '其他',
+}
+
+export interface ReworkTimelineEntry {
+  status: ReworkStatus
+  timestamp: string
+  operator: string
+  note?: string
+}
+
+export interface ReworkStatusTransition {
+  fromStatus: ReworkStatus | null
+  toStatus: ReworkStatus
+  timestamp: string
+  operator: string
+  note?: string
+}
+
 export interface ReturnRecord {
   id: string
   orderId: string
@@ -138,6 +258,31 @@ export interface ReturnRecord {
   correctiveAction: string
   responsibleTechnician?: string
   completedAt?: string
+  status: ReworkStatus
+  sourceStage: ReworkSourceStage
+  problemType: ReworkProblemType
+  rootCause: ReworkRootCause
+  responsibility: ReworkResponsibility
+  relatedTeeth: string[]
+  chargeable: boolean
+  chargeAmount?: number
+  deadline: string
+  acceptanceAt?: string
+  rectificationStartAt?: string
+  rectificationCompleteAt?: string
+  recheckAt?: string
+  closedAt?: string
+  acceptedBy?: string
+  rectifiedBy?: string
+  recheckedBy?: string
+  closedBy?: string
+  recheckResult?: 'pass' | 'fail'
+  recheckNote?: string
+  closureNote?: string
+  timeline: ReworkTimelineEntry[]
+  statusHistory: ReworkStatusTransition[]
+  stageBeforeRework: ProcessingStage
+  statusBeforeRework: OrderStatus
 }
 
 export interface ToothWorkItem {

@@ -12,11 +12,61 @@ import type {
   Communication,
   AttachmentCategory,
   CommunicationType,
+  ReturnRecord,
+  ReworkStatus,
+  ReworkSourceStage,
+  ReworkProblemType,
+  ReworkRootCause,
+  ReworkResponsibility,
+  ReworkTimelineEntry,
+  ReworkStatusTransition,
 } from '../types'
-import { ProcessingStages } from '../types'
+import { ProcessingStages, ReworkStatusLabels } from '../types'
 import { MockOrders, MockClinics } from '../mock/orders'
 
 const STORAGE_KEY = 'denture-lab-orders'
+
+function migrateReturnRecord(record: any, order: Order): ReturnRecord {
+  const now = formatDate(new Date())
+  const existingRecord = record as ReturnRecord
+  if (existingRecord.status && existingRecord.timeline) {
+    return existingRecord
+  }
+  const timeline: ReworkTimelineEntry[] = [
+    { status: 'initiated', timestamp: record.returnedAt || now, operator: record.responsibleTechnician || '系统', note: '返工记录创建（历史数据迁移）' },
+  ]
+  const statusHistory: ReworkStatusTransition[] = [
+    { fromStatus: null, toStatus: 'initiated', timestamp: record.returnedAt || now, operator: record.responsibleTechnician || '系统', note: '历史数据迁移' },
+  ]
+  if (record.completedAt) {
+    timeline.push({ status: 'closed', timestamp: record.completedAt, operator: record.responsibleTechnician || '系统', note: '返工完成（历史数据）' })
+    statusHistory.push({ fromStatus: 'initiated', toStatus: 'closed', timestamp: record.completedAt, operator: record.responsibleTechnician || '系统', note: '历史数据迁移' })
+  }
+  return {
+    id: record.id || `R${Date.now()}`,
+    orderId: record.orderId || order.id,
+    returnedAt: record.returnedAt || now,
+    reason: record.reason || '未填写原因',
+    stageReturnedFrom: record.stageReturnedFrom || order.currentStage,
+    correctiveAction: record.correctiveAction || '',
+    responsibleTechnician: record.responsibleTechnician,
+    completedAt: record.completedAt,
+    status: record.completedAt ? 'closed' : 'initiated',
+    sourceStage: (record.stageReturnedFrom as ReworkSourceStage) || 'quality-check',
+    problemType: 'other',
+    rootCause: 'other',
+    responsibility: 'other',
+    relatedTeeth: order.workItems.filter(w => w.toothNumber !== 'all').map(w => w.toothNumber),
+    chargeable: false,
+    deadline: order.deliveryDate,
+    closedAt: record.completedAt,
+    closedBy: record.responsibleTechnician,
+    timeline,
+    statusHistory,
+    stageBeforeRework: record.stageReturnedFrom || order.currentStage,
+    statusBeforeRework: order.status,
+  }
+}
 
 function migrateOrder(order: Order): Order {
   if (!order.stageHistory) {
@@ -24,6 +74,8 @@ function migrateOrder(order: Order): Order {
   }
   if (!order.returnRecords) {
     order.returnRecords = []
+  } else {
+    order.returnRecords = order.returnRecords.map(r => migrateReturnRecord(r, order))
   }
 
   const mockMatch = MockOrders.find((m) => m.id === order.id)
@@ -296,6 +348,239 @@ export function useOrders() {
     return orders.value[idx]
   }
 
+  interface InitiateReworkParams {
+    sourceStage: ReworkSourceStage
+    problemType: ReworkProblemType
+    rootCause: ReworkRootCause
+    responsibility: ReworkResponsibility
+    reason: string
+    correctiveAction: string
+    relatedTeeth: string[]
+    responsibleTechnician?: string
+    chargeable: boolean
+    chargeAmount?: number
+    deadline: string
+    targetStage?: ProcessingStage
+    operator: string
+  }
+
+  function initiateRework(
+    orderId: string,
+    params: InitiateReworkParams
+  ): Order | undefined {
+    const idx = orders.value.findIndex((o) => o.id === orderId)
+    if (idx === -1) return undefined
+
+    const order = orders.value[idx]
+    const now = formatDate(new Date())
+    const currentIdx = getCurrentStageIndex(order)
+    const stageBeforeRework = order.currentStage
+    const statusBeforeRework = order.status
+
+    const currentEntry = order.stageHistory.find(
+      (e) => e.stage === order.currentStage && !e.completedAt
+    )
+    if (currentEntry) {
+      currentEntry.completedAt = now
+      if (params.responsibleTechnician) currentEntry.technician = params.responsibleTechnician
+      currentEntry.errorReason = params.reason
+    }
+
+    let targetStageIdx = currentIdx - 1
+    if (params.targetStage) {
+      const targetIdx = ProcessingStages.findIndex((s) => s.stage === params.targetStage)
+      if (targetIdx >= 0 && targetIdx < currentIdx) {
+        targetStageIdx = targetIdx
+      }
+    }
+    if (targetStageIdx < 0) targetStageIdx = 0
+
+    const targetStage = ProcessingStages[targetStageIdx].stage
+    order.currentStage = targetStage
+    order.stageHistory.push({
+      stage: targetStage,
+      startedAt: now,
+      technician: params.responsibleTechnician || '调度员-系统',
+      notes: `返工回退：${params.reason}`,
+      errorReason: params.reason,
+    })
+
+    const timeline: ReworkTimelineEntry[] = [
+      { status: 'initiated', timestamp: now, operator: params.operator, note: params.reason },
+    ]
+    const statusHistory: ReworkStatusTransition[] = [
+      { fromStatus: null, toStatus: 'initiated', timestamp: now, operator: params.operator, note: `发起返工，问题：${params.reason}` },
+    ]
+
+    const returnRecord: ReturnRecord = {
+      id: `R${Date.now()}`,
+      orderId: order.id,
+      returnedAt: now,
+      reason: params.reason,
+      stageReturnedFrom: ProcessingStages[currentIdx].stage,
+      correctiveAction: params.correctiveAction,
+      responsibleTechnician: params.responsibleTechnician,
+      status: 'initiated',
+      sourceStage: params.sourceStage,
+      problemType: params.problemType,
+      rootCause: params.rootCause,
+      responsibility: params.responsibility,
+      relatedTeeth: params.relatedTeeth,
+      chargeable: params.chargeable,
+      chargeAmount: params.chargeAmount,
+      deadline: params.deadline,
+      timeline,
+      statusHistory,
+      stageBeforeRework,
+      statusBeforeRework,
+    }
+
+    order.returnRecords.push(returnRecord)
+    order.status = 'returned'
+
+    addSystemCommunication(
+      orderId,
+      `【发起返工】从${ProcessingStages[currentIdx].label}回退至${ProcessingStages[targetStageIdx].label} | 问题类型：${params.problemType} | 原因：${params.reason} | 整改：${params.correctiveAction}`,
+      ProcessingStages[currentIdx].stage
+    )
+
+    orders.value[idx] = { ...order }
+    return orders.value[idx]
+  }
+
+  interface ReworkStatusUpdateParams {
+    operator: string
+    note?: string
+  }
+
+  function updateReworkStatus(
+    orderId: string,
+    reworkId: string,
+    newStatus: ReworkStatus,
+    params: ReworkStatusUpdateParams & {
+      recheckResult?: 'pass' | 'fail'
+      recheckNote?: string
+      closureNote?: string
+      chargeAmount?: number
+    } = { operator: '系统' }
+  ): Order | undefined {
+    const idx = orders.value.findIndex((o) => o.id === orderId)
+    if (idx === -1) return undefined
+
+    const order = orders.value[idx]
+    const reworkIdx = order.returnRecords.findIndex((r) => r.id === reworkId)
+    if (reworkIdx === -1) return undefined
+
+    const rework = order.returnRecords[reworkIdx]
+    const now = formatDate(new Date())
+    const oldStatus = rework.status
+
+    rework.status = newStatus
+    rework.timeline.push({
+      status: newStatus,
+      timestamp: now,
+      operator: params.operator,
+      note: params.note,
+    })
+    rework.statusHistory.push({
+      fromStatus: oldStatus,
+      toStatus: newStatus,
+      timestamp: now,
+      operator: params.operator,
+      note: params.note,
+    })
+
+    switch (newStatus) {
+      case 'accepted':
+        rework.acceptanceAt = now
+        rework.acceptedBy = params.operator
+        addSystemCommunication(orderId, `【返工受理】记录${rework.id}已由${params.operator}受理${params.note ? `，备注：${params.note}` : ''}`, order.currentStage)
+        break
+      case 'rectifying':
+        rework.rectificationStartAt = now
+        rework.rectifiedBy = params.operator
+        addSystemCommunication(orderId, `【返工整改中】${params.operator}开始整改${params.note ? `，备注：${params.note}` : ''}`, order.currentStage)
+        break
+      case 'rechecking':
+        rework.rectificationCompleteAt = now
+        rework.recheckAt = now
+        rework.recheckedBy = params.operator
+        addSystemCommunication(orderId, `【返工整改完成，进入复检】${params.operator}完成整改提交复检${params.note ? `，备注：${params.note}` : ''}`, order.currentStage)
+        break
+      case 'closed':
+        rework.closedAt = now
+        rework.closedBy = params.operator
+        rework.completedAt = now
+        if (params.recheckResult) rework.recheckResult = params.recheckResult
+        if (params.recheckNote) rework.recheckNote = params.recheckNote
+        if (params.closureNote) rework.closureNote = params.closureNote
+        if (params.chargeAmount !== undefined) rework.chargeAmount = params.chargeAmount
+
+        const hasActiveRework = order.returnRecords.some(
+          (r, i) => i !== reworkIdx && r.status !== 'closed'
+        )
+        if (!hasActiveRework) {
+          order.status = determineStatusFromStage(order.currentStage, false)
+        }
+
+        const resultText = params.recheckResult === 'pass' ? '复检通过' : params.recheckResult === 'fail' ? '复检不通过' : ''
+        addSystemCommunication(
+          orderId,
+          `【返工关闭】记录${rework.id}${resultText}已关闭${params.closureNote ? `，关闭备注：${params.closureNote}` : ''}${!hasActiveRework ? '，订单返工状态已解除' : ''}`,
+          order.currentStage
+        )
+        break
+    }
+
+    order.returnRecords[reworkIdx] = { ...rework }
+    orders.value[idx] = { ...order }
+    return orders.value[idx]
+  }
+
+  function acceptRework(orderId: string, reworkId: string, operator: string, note?: string): Order | undefined {
+    return updateReworkStatus(orderId, reworkId, 'accepted', { operator, note })
+  }
+
+  function startRectification(orderId: string, reworkId: string, operator: string, note?: string): Order | undefined {
+    return updateReworkStatus(orderId, reworkId, 'rectifying', { operator, note })
+  }
+
+  function submitForRecheck(orderId: string, reworkId: string, operator: string, note?: string): Order | undefined {
+    return updateReworkStatus(orderId, reworkId, 'rechecking', { operator, note })
+  }
+
+  function closeRework(
+    orderId: string,
+    reworkId: string,
+    operator: string,
+    recheckResult: 'pass' | 'fail',
+    closureNote?: string,
+    recheckNote?: string,
+    chargeAmount?: number
+  ): Order | undefined {
+    return updateReworkStatus(orderId, reworkId, 'closed', {
+      operator,
+      recheckResult,
+      closureNote,
+      recheckNote,
+      chargeAmount,
+    })
+  }
+
+  function getActiveRework(orderId: string): ReturnRecord | undefined {
+    const order = getOrderById(orderId)
+    if (!order) return undefined
+    return order.returnRecords.find((r) => r.status !== 'closed')
+  }
+
+  function getAllReworks(): ReturnRecord[] {
+    const result: ReturnRecord[] = []
+    orders.value.forEach((order) => {
+      order.returnRecords.forEach((r) => result.push(r))
+    })
+    return result.sort((a, b) => new Date(b.returnedAt).getTime() - new Date(a.returnedAt).getTime())
+  }
+
   function returnToPreviousStage(
     orderId: string,
     params: StageOperationParams & {
@@ -304,55 +589,22 @@ export function useOrders() {
       responsibleTechnician?: string
     }
   ): Order | undefined {
-    const idx = orders.value.findIndex((o) => o.id === orderId)
-    if (idx === -1) return undefined
+    const order = getOrderById(orderId)
+    if (!order) return undefined
 
-    const order = orders.value[idx]
-    const now = formatDate(new Date())
-    const currentIdx = getCurrentStageIndex(order)
-
-    if (currentIdx <= 0) return undefined
-
-    const currentEntry = order.stageHistory.find(
-      (e) => e.stage === order.currentStage && !e.completedAt
-    )
-    if (currentEntry) {
-      currentEntry.completedAt = now
-      if (params.technician) currentEntry.technician = params.technician
-      if (params.notes) currentEntry.notes = params.notes
-      currentEntry.errorReason = params.reason
-    }
-
-    const prevStage = ProcessingStages[currentIdx - 1].stage
-    order.currentStage = prevStage
-    order.stageHistory.push({
-      stage: prevStage,
-      startedAt: now,
-      technician: params.technician || '调度员-系统',
-      notes: params.notes || '退回返工',
-      errorReason: params.reason,
-    })
-
-    order.returnRecords.push({
-      id: `R${Date.now()}`,
-      orderId: order.id,
-      returnedAt: now,
+    return initiateRework(orderId, {
+      sourceStage: (order.currentStage as ReworkSourceStage) || 'quality-check',
+      problemType: 'other',
+      rootCause: 'other',
+      responsibility: 'other',
       reason: params.reason,
-      stageReturnedFrom: ProcessingStages[currentIdx].stage,
-      correctiveAction: params.correctiveAction || '',
+      correctiveAction: params.correctiveAction || '待补充整改措施',
+      relatedTeeth: order.workItems.filter(w => w.toothNumber !== 'all').map(w => w.toothNumber),
       responsibleTechnician: params.responsibleTechnician,
+      chargeable: false,
+      deadline: order.deliveryDate,
+      operator: params.technician || '系统',
     })
-
-    order.status = 'returned'
-
-    addSystemCommunication(
-      orderId,
-      `订单已从${ProcessingStages[currentIdx].label}阶段退回至${ProcessingStages[currentIdx - 1].label}阶段，原因：${params.reason}`,
-      ProcessingStages[currentIdx].stage
-    )
-
-    orders.value[idx] = { ...order }
-    return orders.value[idx]
   }
 
   function pauseOrder(
@@ -705,5 +957,13 @@ export function useOrders() {
     markAsDelivered,
     addAttachment,
     addCommunication,
+    initiateRework,
+    acceptRework,
+    startRectification,
+    submitForRecheck,
+    closeRework,
+    updateReworkStatus,
+    getActiveRework,
+    getAllReworks,
   }
 }

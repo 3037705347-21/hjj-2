@@ -48,6 +48,11 @@ import type {
   RestorationType,
   MaterialType,
   ImpressionMethod,
+  ReworkProblemType,
+  ReworkRootCause,
+  ReworkResponsibility,
+  ReworkSourceStage,
+  ReworkStatus,
 } from '../types'
 import {
   OrderStatusLabels,
@@ -56,6 +61,11 @@ import {
   RestorationTypeLabels,
   MaterialTypeLabels,
   ImpressionMethodLabels,
+  ReworkProblemTypeLabels,
+  ReworkRootCauseLabels,
+  ReworkResponsibilityLabels,
+  ReworkSourceStageLabels,
+  ReworkStatusLabels,
 } from '../types'
 import { useOrders } from '../composables/useOrders'
 import { cn } from '../lib/utils'
@@ -84,6 +94,14 @@ const amountMin = ref<string>('')
 const amountMax = ref<string>('')
 const doctorFilter = ref<string>('')
 const technicianFilter = ref<string>('')
+const reworkProblemTypeFilter = ref<ReworkProblemType | 'all'>('all')
+const reworkRootCauseFilter = ref<ReworkRootCause | 'all'>('all')
+const reworkResponsibilityFilter = ref<ReworkResponsibility | 'all'>('all')
+const reworkSourceStageFilter = ref<ReworkSourceStage | 'all'>('all')
+const reworkStatusFilter = ref<ReworkStatus | 'all'>('all')
+const reworkCompletedFilter = ref<'all' | 'completed' | 'incomplete'>('all')
+const reworkTechnicianFilter = ref<string>('')
+const reworkChargeableFilter = ref<'all' | 'yes' | 'no'>('all')
 
 type SortField = 'priority' | 'deliveryDate' | 'createdAt' | 'amount' | 'clinic'
 type SortOrder = 'asc' | 'desc'
@@ -113,6 +131,14 @@ interface SavedFilterScheme {
     amountMax: string
     doctorFilter: string
     technicianFilter: string
+    reworkProblemTypeFilter: ReworkProblemType | 'all'
+    reworkRootCauseFilter: ReworkRootCause | 'all'
+    reworkResponsibilityFilter: ReworkResponsibility | 'all'
+    reworkSourceStageFilter: ReworkSourceStage | 'all'
+    reworkStatusFilter: ReworkStatus | 'all'
+    reworkCompletedFilter: 'all' | 'completed' | 'incomplete'
+    reworkTechnicianFilter: string
+    reworkChargeableFilter: 'all' | 'yes' | 'no'
   }
 }
 
@@ -264,6 +290,82 @@ const filteredOrders = computed(() => {
         (s) => s.technician && s.technician.toLowerCase().includes(q)
       )
       if (!hasTechnician) return false
+    }
+
+    if (reworkProblemTypeFilter.value !== 'all') {
+      if (order.returnRecords.length === 0) return false
+      const hasMatch = order.returnRecords.some(
+        (r) => r.problemType === reworkProblemTypeFilter.value
+      )
+      if (!hasMatch) return false
+    }
+
+    if (reworkRootCauseFilter.value !== 'all') {
+      if (order.returnRecords.length === 0) return false
+      const hasMatch = order.returnRecords.some(
+        (r) => r.rootCause === reworkRootCauseFilter.value
+      )
+      if (!hasMatch) return false
+    }
+
+    if (reworkResponsibilityFilter.value !== 'all') {
+      if (order.returnRecords.length === 0) return false
+      const hasMatch = order.returnRecords.some(
+        (r) => r.responsibility === reworkResponsibilityFilter.value
+      )
+      if (!hasMatch) return false
+    }
+
+    if (reworkSourceStageFilter.value !== 'all') {
+      if (order.returnRecords.length === 0) return false
+      const hasMatch = order.returnRecords.some(
+        (r) => r.sourceStage === reworkSourceStageFilter.value
+      )
+      if (!hasMatch) return false
+    }
+
+    if (reworkStatusFilter.value !== 'all') {
+      if (order.returnRecords.length === 0) return false
+      const hasMatch = order.returnRecords.some(
+        (r) => r.status === reworkStatusFilter.value
+      )
+      if (!hasMatch) return false
+    }
+
+    if (reworkCompletedFilter.value === 'completed') {
+      if (order.returnRecords.length === 0) return false
+      const allClosed = order.returnRecords.every((r) => r.status === 'closed')
+      if (!allClosed) return false
+    }
+    if (reworkCompletedFilter.value === 'incomplete') {
+      if (order.returnRecords.length === 0) return false
+      const hasActive = order.returnRecords.some((r) => r.status !== 'closed')
+      if (!hasActive) return false
+    }
+
+    if (reworkTechnicianFilter.value.trim()) {
+      if (order.returnRecords.length === 0) return false
+      const q = reworkTechnicianFilter.value.toLowerCase()
+      const hasMatch = order.returnRecords.some(
+        (r) =>
+          (r.responsibleTechnician && r.responsibleTechnician.toLowerCase().includes(q)) ||
+          (r.acceptedBy && r.acceptedBy.toLowerCase().includes(q)) ||
+          (r.rectifiedBy && r.rectifiedBy.toLowerCase().includes(q)) ||
+          (r.recheckedBy && r.recheckedBy.toLowerCase().includes(q)) ||
+          (r.closedBy && r.closedBy.toLowerCase().includes(q))
+      )
+      if (!hasMatch) return false
+    }
+
+    if (reworkChargeableFilter.value === 'yes') {
+      if (order.returnRecords.length === 0) return false
+      const hasChargeable = order.returnRecords.some((r) => r.chargeable)
+      if (!hasChargeable) return false
+    }
+    if (reworkChargeableFilter.value === 'no') {
+      if (order.returnRecords.length === 0) return false
+      const allFree = order.returnRecords.every((r) => !r.chargeable)
+      if (!allFree) return false
     }
 
     if (activeQuickView.value !== 'all') {
@@ -489,6 +591,14 @@ const hasActiveFilters = computed(() => {
     amountMax.value !== '' ||
     doctorFilter.value.trim() !== '' ||
     technicianFilter.value.trim() !== '' ||
+    reworkProblemTypeFilter.value !== 'all' ||
+    reworkRootCauseFilter.value !== 'all' ||
+    reworkResponsibilityFilter.value !== 'all' ||
+    reworkSourceStageFilter.value !== 'all' ||
+    reworkStatusFilter.value !== 'all' ||
+    reworkCompletedFilter.value !== 'all' ||
+    reworkTechnicianFilter.value.trim() !== '' ||
+    reworkChargeableFilter.value !== 'all' ||
     activeQuickView.value !== 'all'
   )
 })
@@ -511,6 +621,14 @@ const activeFiltersCount = computed(() => {
     amountMax.value !== '',
     doctorFilter.value.trim() !== '',
     technicianFilter.value.trim() !== '',
+    reworkProblemTypeFilter.value !== 'all',
+    reworkRootCauseFilter.value !== 'all',
+    reworkResponsibilityFilter.value !== 'all',
+    reworkSourceStageFilter.value !== 'all',
+    reworkStatusFilter.value !== 'all',
+    reworkCompletedFilter.value !== 'all',
+    reworkTechnicianFilter.value.trim() !== '',
+    reworkChargeableFilter.value !== 'all',
     activeQuickView.value !== 'all',
   ].filter(Boolean).length
 })
@@ -532,6 +650,14 @@ function clearFilters() {
   amountMax.value = ''
   doctorFilter.value = ''
   technicianFilter.value = ''
+  reworkProblemTypeFilter.value = 'all'
+  reworkRootCauseFilter.value = 'all'
+  reworkResponsibilityFilter.value = 'all'
+  reworkSourceStageFilter.value = 'all'
+  reworkStatusFilter.value = 'all'
+  reworkCompletedFilter.value = 'all'
+  reworkTechnicianFilter.value = ''
+  reworkChargeableFilter.value = 'all'
   activeQuickView.value = 'all'
 }
 
@@ -606,6 +732,14 @@ function saveCurrentScheme() {
       amountMax: amountMax.value,
       doctorFilter: doctorFilter.value,
       technicianFilter: technicianFilter.value,
+      reworkProblemTypeFilter: reworkProblemTypeFilter.value,
+      reworkRootCauseFilter: reworkRootCauseFilter.value,
+      reworkResponsibilityFilter: reworkResponsibilityFilter.value,
+      reworkSourceStageFilter: reworkSourceStageFilter.value,
+      reworkStatusFilter: reworkStatusFilter.value,
+      reworkCompletedFilter: reworkCompletedFilter.value,
+      reworkTechnicianFilter: reworkTechnicianFilter.value,
+      reworkChargeableFilter: reworkChargeableFilter.value,
     },
   }
   savedSchemes.value.unshift(newScheme)
@@ -631,6 +765,14 @@ function loadScheme(scheme: SavedFilterScheme) {
   amountMax.value = scheme.filters.amountMax
   doctorFilter.value = scheme.filters.doctorFilter
   technicianFilter.value = scheme.filters.technicianFilter
+  reworkProblemTypeFilter.value = scheme.filters.reworkProblemTypeFilter ?? 'all'
+  reworkRootCauseFilter.value = scheme.filters.reworkRootCauseFilter ?? 'all'
+  reworkResponsibilityFilter.value = scheme.filters.reworkResponsibilityFilter ?? 'all'
+  reworkSourceStageFilter.value = scheme.filters.reworkSourceStageFilter ?? 'all'
+  reworkStatusFilter.value = scheme.filters.reworkStatusFilter ?? 'all'
+  reworkCompletedFilter.value = scheme.filters.reworkCompletedFilter ?? 'all'
+  reworkTechnicianFilter.value = scheme.filters.reworkTechnicianFilter ?? ''
+  reworkChargeableFilter.value = scheme.filters.reworkChargeableFilter ?? 'all'
   activeQuickView.value = 'all'
   showSchemeDialog.value = false
 }
@@ -1289,6 +1431,149 @@ function formatDate(dateStr: string) {
                 placeholder="最高金额"
                 class="flex-1 px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-slate-400"
               />
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-4 border-t border-slate-100">
+          <div class="flex items-center gap-2 mb-3">
+            <RefreshCw class="w-4 h-4 text-rose-500" />
+            <span class="text-sm font-semibold text-slate-700">返工专属筛选</span>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1.5">
+                返工问题类型
+              </label>
+              <select
+                v-model="reworkProblemTypeFilter"
+                class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+              >
+                <option value="all">全部类型</option>
+                <option
+                  v-for="(label, key) in ReworkProblemTypeLabels"
+                  :key="key"
+                  :value="key"
+                >
+                  {{ label }}
+                </option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1.5">
+                返工问题根因
+              </label>
+              <select
+                v-model="reworkRootCauseFilter"
+                class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+              >
+                <option value="all">全部根因</option>
+                <option
+                  v-for="(label, key) in ReworkRootCauseLabels"
+                  :key="key"
+                  :value="key"
+                >
+                  {{ label }}
+                </option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1.5">
+                责任归属
+              </label>
+              <select
+                v-model="reworkResponsibilityFilter"
+                class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+              >
+                <option value="all">全部归属</option>
+                <option
+                  v-for="(label, key) in ReworkResponsibilityLabels"
+                  :key="key"
+                  :value="key"
+                >
+                  {{ label }}
+                </option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1.5">
+                来源阶段
+              </label>
+              <select
+                v-model="reworkSourceStageFilter"
+                class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+              >
+                <option value="all">全部阶段</option>
+                <option
+                  v-for="(label, key) in ReworkSourceStageLabels"
+                  :key="key"
+                  :value="key"
+                >
+                  {{ label }}
+                </option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1.5">
+                返工状态
+              </label>
+              <select
+                v-model="reworkStatusFilter"
+                class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+              >
+                <option value="all">全部状态</option>
+                <option
+                  v-for="(label, key) in ReworkStatusLabels"
+                  :key="key"
+                  :value="key"
+                >
+                  {{ label }}
+                </option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1.5">
+                完成状态
+              </label>
+              <select
+                v-model="reworkCompletedFilter"
+                class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+              >
+                <option value="all">全部</option>
+                <option value="completed">全部返工已关闭</option>
+                <option value="incomplete">存在进行中返工</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1.5">
+                返工责任人/操作人
+              </label>
+              <input
+                v-model="reworkTechnicianFilter"
+                type="text"
+                placeholder="搜索责任人姓名"
+                class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent placeholder:text-slate-400"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1.5">
+                是否收费
+              </label>
+              <select
+                v-model="reworkChargeableFilter"
+                class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+              >
+                <option value="all">全部</option>
+                <option value="yes">收费返工</option>
+                <option value="no">免费返工</option>
+              </select>
             </div>
           </div>
         </div>

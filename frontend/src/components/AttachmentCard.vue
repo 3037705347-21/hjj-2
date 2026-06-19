@@ -28,7 +28,7 @@ const props = defineProps<Props>()
 
 const activeCategory = ref<AttachmentCategory | 'all'>('all')
 
-const categoryList: { key: AttachmentCategory | 'all'; label: string; count: number }[] = computed(() => {
+const categoryList = computed(() => {
   const cats: { key: AttachmentCategory | 'all'; label: string; count: number }[] = [
     { key: 'all', label: '全部', count: props.attachments.length },
   ]

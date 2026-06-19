@@ -33,7 +33,7 @@ const props = defineProps<Props>()
 const activeType = ref<CommunicationType | 'all'>('all')
 const sortOrder = ref<'desc' | 'asc'>('desc')
 
-const typeList: { key: CommunicationType | 'all'; label: string; count: number }[] = computed(() => {
+const typeList = computed(() => {
   const types: { key: CommunicationType | 'all'; label: string; count: number }[] = [
     { key: 'all', label: '全部', count: props.communications.length },
   ]

@@ -32,6 +32,11 @@ import {
   PackageCheck,
   X,
   AlertTriangle,
+  Eye,
+  ThumbsUp,
+  ThumbsDown,
+  ArrowRight,
+  FileSearch,
 } from 'lucide-vue-next'
 import StatusBadge from '../components/StatusBadge.vue'
 import PriorityBadge from '../components/PriorityBadge.vue'
@@ -39,13 +44,21 @@ import ToothChart from '../components/ToothChart.vue'
 import StageTimeline from '../components/StageTimeline.vue'
 import AttachmentCard from '../components/AttachmentCard.vue'
 import CommunicationCard from '../components/CommunicationCard.vue'
+import ReworkFormDialog from '../components/ReworkFormDialog.vue'
+import ReworkDetailPanel from '../components/ReworkDetailPanel.vue'
 import { useOrders } from '../composables/useOrders'
-import type { StageHistoryEntry, ProcessingStage } from '../types'
+import type { StageHistoryEntry, ProcessingStage, ReturnRecord, ReworkStatus, ReworkSourceStage, ReworkProblemType, ReworkRootCause, ReworkResponsibility } from '../types'
 import {
   ProcessingStages,
   RestorationTypeLabels,
   MaterialTypeLabels,
   ImpressionMethodLabels,
+  ReworkStatusLabels,
+  ReworkStatusColors,
+  ReworkSourceStageLabels,
+  ReworkProblemTypeLabels,
+  ReworkRootCauseLabels,
+  ReworkResponsibilityLabels,
 } from '../types'
 
 const route = useRoute()
@@ -60,6 +73,11 @@ const {
   resumeOrder,
   markAsShipped,
   markAsDelivered,
+  initiateRework,
+  acceptRework,
+  startRectification,
+  submitForRecheck,
+  closeRework,
 } = useOrders()
 
 const order = computed(() => getOrderById(String(route.params.id)))
@@ -145,7 +163,6 @@ const canDeliver = computed(() => {
 type DialogMode =
   | 'start'
   | 'complete'
-  | 'return'
   | 'pause'
   | 'resume'
   | 'ship'
@@ -159,6 +176,10 @@ const formNotes = ref('')
 const formErrorReason = ref('')
 const formCorrectiveAction = ref('')
 
+const showReworkForm = ref(false)
+const showReworkDetail = ref(false)
+const selectedRework = ref<ReturnRecord | undefined>(undefined)
+
 function openDialog(mode: DialogMode) {
   dialogMode.value = mode
   formTechnician.value = ''
@@ -171,6 +192,82 @@ function openDialog(mode: DialogMode) {
 function closeDialog() {
   showDialog.value = false
   dialogMode.value = null
+}
+
+function openReworkForm() {
+  showReworkForm.value = true
+}
+
+function closeReworkForm() {
+  showReworkForm.value = false
+}
+
+function openReworkDetail(rework: ReturnRecord) {
+  selectedRework.value = rework
+  showReworkDetail.value = true
+}
+
+function closeReworkDetail() {
+  showReworkDetail.value = false
+  selectedRework.value = undefined
+}
+
+function handleInitiateRework(params: {
+  sourceStage: ReworkSourceStage
+  problemType: ReworkProblemType
+  rootCause: ReworkRootCause
+  responsibility: ReworkResponsibility
+  reason: string
+  correctiveAction: string
+  relatedTeeth: string[]
+  responsibleTechnician: string
+  chargeable: boolean
+  chargeAmount?: number
+  deadline: string
+  targetStage?: ProcessingStage
+  operator: string
+}) {
+  if (!order.value) return
+  initiateRework(order.value.id, params)
+  closeReworkForm()
+}
+
+function handleAcceptRework(params: { operator: string; note?: string }) {
+  if (!order.value || !selectedRework.value) return
+  acceptRework(order.value.id, selectedRework.value.id, params.operator, params.note)
+  closeReworkDetail()
+}
+
+function handleStartRectification(params: { operator: string; note?: string }) {
+  if (!order.value || !selectedRework.value) return
+  startRectification(order.value.id, selectedRework.value.id, params.operator, params.note)
+  closeReworkDetail()
+}
+
+function handleSubmitForRecheck(params: { operator: string; note?: string }) {
+  if (!order.value || !selectedRework.value) return
+  submitForRecheck(order.value.id, selectedRework.value.id, params.operator, params.note)
+  closeReworkDetail()
+}
+
+function handleCloseRework(params: {
+  operator: string
+  recheckResult: 'pass' | 'fail'
+  closureNote?: string
+  recheckNote?: string
+  chargeAmount?: number
+}) {
+  if (!order.value || !selectedRework.value) return
+  closeRework(
+    order.value.id,
+    selectedRework.value.id,
+    params.operator,
+    params.recheckResult,
+    params.closureNote,
+    params.recheckNote,
+    params.chargeAmount
+  )
+  closeReworkDetail()
 }
 
 function confirmAction() {
@@ -189,18 +286,6 @@ function confirmAction() {
         technician: formTechnician.value,
         notes: formNotes.value,
         errorReason: formErrorReason.value || undefined,
-      })
-      break
-    case 'return':
-      if (!formErrorReason.value.trim()) {
-        alert('请填写退回原因')
-        return
-      }
-      returnToPreviousStage(id, {
-        technician: formTechnician.value,
-        notes: formNotes.value,
-        reason: formErrorReason.value,
-        correctiveAction: formCorrectiveAction.value || undefined,
       })
       break
     case 'pause':
@@ -238,8 +323,6 @@ const dialogTitle = computed(() => {
       return `开始阶段：${ProcessingStages[currentStageIndex.value]?.label}`
     case 'complete':
       return `完成阶段：${ProcessingStages[currentStageIndex.value]?.label}`
-    case 'return':
-      return `退回上一阶段`
     case 'pause':
       return '暂停处理'
     case 'resume':
@@ -438,10 +521,10 @@ function goToNewOrder() {
             <button
               v-if="canReturn"
               class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-rose-600 rounded-lg hover:bg-rose-700 transition-colors shadow-sm"
-              @click="openDialog('return')"
+              @click="openReworkForm"
             >
-              <Undo2 class="w-4 h-4" />
-              退回上一阶段
+              <AlertTriangle class="w-4 h-4" />
+              发起返工
             </button>
             <button
               v-if="canPause"
@@ -624,93 +707,185 @@ function goToNewOrder() {
         </div>
 
         <div
-          v-if="order.returnRecords.length > 0"
-          class="bg-white rounded-xl border border-rose-200 overflow-hidden"
+          class="bg-white rounded-xl border overflow-hidden"
+          :class="order.returnRecords.length > 0 ? 'border-rose-200' : 'border-slate-200'"
         >
           <div
-            class="px-5 py-4 border-b border-rose-100 bg-rose-50/50 flex items-center gap-2"
+            class="px-5 py-4 border-b border-slate-100 flex items-center justify-between"
+            :class="order.returnRecords.length > 0 ? 'bg-rose-50/50 border-rose-100' : 'bg-slate-50/50'"
           >
-            <div
-              class="w-8 h-8 rounded-lg bg-rose-100 border border-rose-200 flex items-center justify-center"
+            <div class="flex items-center gap-2">
+              <div
+                class="w-8 h-8 rounded-lg flex items-center justify-center border"
+                :class="order.returnRecords.length > 0 ? 'bg-rose-100 border-rose-200' : 'bg-slate-100 border-slate-200'"
+              >
+                <AlertCircle class="w-4 h-4" :class="order.returnRecords.length > 0 ? 'text-rose-600' : 'text-slate-500'" />
+              </div>
+              <div>
+                <h2 class="text-base font-semibold text-slate-800">
+                  返工记录
+                </h2>
+                <p class="text-xs text-slate-500">
+                  共 {{ order.returnRecords.length }} 次返工，
+                  进行中 {{ order.returnRecords.filter(r => r.status !== 'closed').length }} 次
+                </p>
+              </div>
+            </div>
+            <button
+              v-if="canReturn"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-rose-600 rounded-lg hover:bg-rose-700 transition-colors shadow-sm"
+              @click="openReworkForm"
             >
-              <AlertCircle class="w-4 h-4 text-rose-600" />
-            </div>
-            <div>
-              <h2 class="text-base font-semibold text-slate-800">
-                返工记录
-              </h2>
-              <p class="text-xs text-slate-500">
-                共 {{ order.returnRecords.length }} 次返工
-              </p>
-            </div>
+              <Plus class="w-3.5 h-3.5" />
+              发起返工
+            </button>
           </div>
-          <div class="p-5 space-y-4">
+          <div v-if="order.returnRecords.length > 0" class="p-5 space-y-4">
             <div
               v-for="(record, idx) in order.returnRecords"
               :key="record.id"
-              class="border border-rose-100 bg-rose-50/30 rounded-lg p-4"
+              class="border rounded-lg p-4 cursor-pointer transition-all hover:shadow-md"
+              :class="record.status === 'closed' ? 'border-slate-200 bg-slate-50/30' : 'border-rose-200 bg-rose-50/30 hover:bg-rose-50/50'"
+              @click="openReworkDetail(record)"
             >
               <div
                 class="flex items-start justify-between mb-3 flex-wrap gap-2"
               >
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 flex-wrap">
                   <span
-                    class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-rose-600 text-white text-xs font-bold"
+                    class="inline-flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-bold"
+                    :class="record.status === 'closed' ? 'bg-slate-500' : 'bg-rose-600'"
                   >
                     #{{ idx + 1 }}
                   </span>
                   <span class="font-medium text-slate-800 text-sm">
-                    {{ getStageInfo(record.stageReturnedFrom)?.label }}
-                    阶段退回
+                    {{ ReworkSourceStageLabels[record.sourceStage] }}
+                    来源
+                  </span>
+                  <span
+                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium border"
+                    :class="ReworkStatusColors[record.status]"
+                  >
+                    {{ ReworkStatusLabels[record.status] }}
+                  </span>
+                  <span
+                    v-if="record.recheckResult"
+                    class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium border"
+                    :class="record.recheckResult === 'pass' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'"
+                  >
+                    <ThumbsUp v-if="record.recheckResult === 'pass'" class="w-2.5 h-2.5" />
+                    <ThumbsDown v-else class="w-2.5 h-2.5" />
+                    {{ record.recheckResult === 'pass' ? '复检通过' : '复检不通过' }}
                   </span>
                 </div>
-                <span class="text-xs text-slate-500">
-                  {{ formatDate(record.returnedAt) }}
+                <div class="flex items-center gap-2">
+                  <span class="text-xs text-slate-500">
+                    {{ formatDate(record.returnedAt) }}
+                  </span>
+                  <FileSearch class="w-3.5 h-3.5 text-slate-400" />
+                </div>
+              </div>
+
+              <div class="flex flex-wrap gap-1.5 mb-3">
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                  {{ ReworkProblemTypeLabels[record.problemType] }}
+                </span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                  {{ ReworkRootCauseLabels[record.rootCause] }}
+                </span>
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                  {{ ReworkResponsibilityLabels[record.responsibility] }}
+                </span>
+                <span
+                  v-for="tooth in record.relatedTeeth.slice(0, 5)"
+                  :key="tooth"
+                  class="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-50 border border-rose-200 text-rose-700"
+                >
+                  {{ tooth }}
+                </span>
+                <span
+                  v-if="record.relatedTeeth.length > 5"
+                  class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200"
+                >
+                  +{{ record.relatedTeeth.length - 5 }}
+                </span>
+                <span
+                  v-if="record.chargeable"
+                  class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200"
+                >
+                  ¥{{ record.chargeAmount?.toLocaleString() || '0' }}
                 </span>
               </div>
 
-              <div class="space-y-3 text-sm">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div class="space-y-2 text-sm">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
                   <div
-                    class="p-3 bg-white rounded-lg border border-slate-200"
+                    class="p-2.5 bg-white rounded-lg border border-slate-200"
                   >
-                    <div class="flex items-center gap-1.5 text-xs font-medium text-rose-600 mb-1">
-                      <XCircle class="w-3.5 h-3.5" />
-                      问题原因
+                    <div class="flex items-center gap-1 text-[11px] font-medium text-rose-600 mb-0.5">
+                      <XCircle class="w-3 h-3" />
+                      问题描述
                     </div>
-                    <p class="text-slate-700">{{ record.reason }}</p>
+                    <p class="text-slate-700 text-xs line-clamp-2">{{ record.reason }}</p>
                   </div>
                   <div
-                    class="p-3 bg-white rounded-lg border border-slate-200"
+                    class="p-2.5 bg-white rounded-lg border border-slate-200"
                   >
-                    <div class="flex items-center gap-1.5 text-xs font-medium text-emerald-600 mb-1">
-                      <Wrench class="w-3.5 h-3.5" />
+                    <div class="flex items-center gap-1 text-[11px] font-medium text-emerald-600 mb-0.5">
+                      <Wrench class="w-3 h-3" />
                       整改措施
                     </div>
-                    <p class="text-slate-700">
+                    <p class="text-slate-700 text-xs line-clamp-2">
                       {{ record.correctiveAction }}
                     </p>
                   </div>
                 </div>
 
                 <div
-                  class="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-rose-100"
+                  class="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t"
+                  :class="record.status === 'closed' ? 'border-slate-200' : 'border-rose-100'"
                 >
-                  <div class="flex items-center gap-4">
-                    <span v-if="record.responsibleTechnician">
-                      责任人：{{ record.responsibleTechnician }}
+                  <div class="flex items-center gap-4 flex-wrap">
+                    <span v-if="record.responsibleTechnician" class="inline-flex items-center gap-1">
+                      <User class="w-3 h-3" />
+                      责任技师：{{ record.responsibleTechnician }}
+                    </span>
+                    <span class="inline-flex items-center gap-1">
+                      <ArrowRight class="w-3 h-3" />
+                      {{ getStageInfo(record.stageBeforeRework)?.label }} → {{ getStageInfo(record.stageReturnedFrom)?.label }}
                     </span>
                   </div>
-                  <span
-                    v-if="record.completedAt"
-                    class="inline-flex items-center gap-1 text-emerald-600 font-medium"
-                  >
-                    <CheckCircle2 class="w-3.5 h-3.5" />
-                    已解决 {{ formatShortDate(record.completedAt) }}
-                  </span>
+                  <div class="flex items-center gap-3">
+                    <span class="inline-flex items-center gap-1">
+                      <Clock class="w-3 h-3" />
+                      截止：{{ formatShortDate(record.deadline) }}
+                    </span>
+                    <span
+                      v-if="record.status === 'closed'"
+                      class="inline-flex items-center gap-1 text-emerald-600 font-medium"
+                    >
+                      <CheckCircle2 class="w-3.5 h-3.5" />
+                      {{ formatShortDate(record.closedAt || record.completedAt || '') }}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
+          </div>
+          <div v-else class="p-10 text-center">
+            <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-slate-100 flex items-center justify-center">
+              <CheckCircle2 class="w-8 h-8 text-slate-300" />
+            </div>
+            <p class="text-sm font-medium text-slate-600 mb-1">暂无返工记录</p>
+            <p class="text-xs text-slate-400 mb-4">保持良好质量，订单加工顺利</p>
+            <button
+              v-if="canReturn"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-rose-600 bg-rose-50 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors"
+              @click="openReworkForm"
+            >
+              <AlertTriangle class="w-3.5 h-3.5" />
+              发起首次返工
+            </button>
           </div>
         </div>
 
@@ -1046,21 +1221,6 @@ function goToNewOrder() {
             />
           </div>
 
-          <div v-if="dialogMode === 'return'">
-            <label class="block text-sm font-medium text-rose-700 mb-1.5">
-              <span class="inline-flex items-center gap-1">
-                <AlertTriangle class="w-3.5 h-3.5" />
-                退回原因 <span class="text-rose-500">*</span>
-              </span>
-            </label>
-            <textarea
-              v-model="formErrorReason"
-              rows="3"
-              placeholder="请详细描述退回原因，如质量问题、返工需求等"
-              class="w-full px-3 py-2 text-sm border border-rose-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent placeholder:text-slate-400 resize-none"
-            ></textarea>
-          </div>
-
           <div v-if="dialogMode === 'complete'">
             <label class="block text-sm font-medium text-slate-700 mb-1.5">
               异常原因（可选）
@@ -1069,18 +1229,6 @@ function goToNewOrder() {
               v-model="formErrorReason"
               rows="2"
               placeholder="若本阶段存在异常情况请填写，正常完成可留空"
-              class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-slate-400 resize-none"
-            ></textarea>
-          </div>
-
-          <div v-if="dialogMode === 'return'">
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">
-              整改措施（可选）
-            </label>
-            <textarea
-              v-model="formCorrectiveAction"
-              rows="2"
-              placeholder="请描述计划采取的整改措施"
               class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-slate-400 resize-none"
             ></textarea>
           </div>
@@ -1116,4 +1264,22 @@ function goToNewOrder() {
       </div>
     </div>
   </Teleport>
+
+  <ReworkFormDialog
+    :show="showReworkForm"
+    :order="order"
+    @close="closeReworkForm"
+    @submit="handleInitiateRework"
+  />
+
+  <ReworkDetailPanel
+    :show="showReworkDetail"
+    :order="order"
+    :rework="selectedRework"
+    @close="closeReworkDetail"
+    @accept="handleAcceptRework"
+    @start-rectification="handleStartRectification"
+    @submit-for-recheck="handleSubmitForRecheck"
+    @close-rework="handleCloseRework"
+  />
 </template>
