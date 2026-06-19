@@ -772,6 +772,12 @@ export interface LogisticsTimelineEntry {
   isException?: boolean
 }
 
+export interface ReshipParams {
+  trackingNumber?: string
+  shippingMethod: ShippingMethod
+  cost?: number
+}
+
 export interface LogisticsRecord {
   id: string
   orderId: string
@@ -790,10 +796,15 @@ export interface LogisticsRecord {
   signStatus: SignStatus
   exceptionType?: ExceptionType
   exceptionDescription?: string
+  exceptionReportedAt?: string
   exceptionHandled?: boolean
   exceptionHandledAt?: string
   exceptionHandledBy?: string
   exceptionResolution?: string
+  needReship?: boolean
+  newShippingMethod?: ShippingMethod
+  newTrackingNumber?: string
+  reshipCost?: number
   notes?: string
   items?: string[]
   weight?: number

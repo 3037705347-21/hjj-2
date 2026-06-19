@@ -239,7 +239,7 @@ function goBack() {
 }
 
 function goToDetail(id: string) {
-  router.push(`/logistics/${id}`)
+  router.push(`/logistics/detail/${id}`)
 }
 
 function goToException(id: string) {

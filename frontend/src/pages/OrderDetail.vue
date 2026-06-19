@@ -1080,7 +1080,7 @@ function goToNewOrder() {
                   class="space-y-0"
                 >
                   <div
-                    v-for="(entry, idx) in logistic.timeline.slice().reverse()"
+                    v-for="(entry, idx) in logistic.timeline"
                     :key="entry.id"
                     class="relative pl-10 pb-5 last:pb-0"
                   >

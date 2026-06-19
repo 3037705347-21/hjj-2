@@ -7,7 +7,9 @@ import type {
   ShippingMethod,
   LogisticsTimelineEntry,
   LogisticsStats,
+  ReshipParams,
 } from '../types'
+import { ShippingMethodLabels } from '../types'
 import { MockLogistics } from '../mock/logistics'
 import { useOrders } from './useOrders'
 
@@ -127,6 +129,10 @@ export function useLogistics() {
 
   function getLogisticsByOrder(orderId: string): LogisticsRecord[] {
     return logistics.value.filter((l) => l.orderId === orderId)
+  }
+
+  function getLogisticsByOrderId(orderId: string): LogisticsRecord[] {
+    return getLogisticsByOrder(orderId)
   }
 
   function getLogisticsByClinic(clinicId: string): LogisticsRecord[] {
@@ -382,6 +388,7 @@ export function useLogistics() {
     record.exceptionType = exceptionType
     record.exceptionDescription = exceptionDescription
     record.exceptionHandled = false
+    record.exceptionReportedAt = now
 
     addTimelineEntry(record, {
       status: '物流异常',
@@ -407,7 +414,8 @@ export function useLogistics() {
     id: string,
     resolution: string,
     operator: string,
-    needReship?: boolean
+    needReship?: boolean,
+    reshipParams?: ReshipParams
   ): LogisticsRecord | undefined {
     const idx = logistics.value.findIndex((l) => l.id === id)
     if (idx === -1) return undefined
@@ -419,14 +427,37 @@ export function useLogistics() {
     record.exceptionHandledAt = now
     record.exceptionHandledBy = operator
     record.exceptionResolution = resolution
+    record.needReship = needReship
 
-    if (needReship) {
+    if (needReship && reshipParams) {
       record.signStatus = 'pending'
+      record.newShippingMethod = reshipParams.shippingMethod
+      record.newTrackingNumber = reshipParams.trackingNumber
+      record.reshipCost = reshipParams.cost
+      record.shipTime = undefined
+      record.signTime = undefined
+
+      if (reshipParams.trackingNumber) {
+        record.trackingNumber = reshipParams.trackingNumber
+      }
+      if (reshipParams.shippingMethod) {
+        record.shippingMethod = reshipParams.shippingMethod
+      }
+      if (reshipParams.cost !== undefined && reshipParams.cost !== null) {
+        record.cost = (record.cost || 0) + reshipParams.cost
+      }
+
+      addTimelineEntry(record, {
+        status: '重新发货',
+        description: `已安排重新发货，${ShippingMethodLabels[reshipParams.shippingMethod]}${reshipParams.trackingNumber ? `，单号：${reshipParams.trackingNumber}` : ''}`,
+        operator,
+        timestamp: now,
+      })
     }
 
     addTimelineEntry(record, {
       status: '异常处理完成',
-      description: `处理方案：${resolution}${needReship ? '，将重新发货' : ''}`,
+      description: `处理方案：${resolution}${needReship ? '，已安排重新发货' : ''}`,
       operator,
       timestamp: now,
     })
@@ -434,7 +465,7 @@ export function useLogistics() {
     if (record.orderId) {
       addSystemCommunication(
         record.orderId,
-        `【异常处理】${resolution}${needReship ? '，将重新安排发货' : ''}`,
+        `【异常处理】${resolution}${needReship ? '，已安排重新发货' : ''}`,
         record.type === 'ship' ? 'shipped' : 'received'
       )
     }
@@ -486,6 +517,7 @@ export function useLogistics() {
     stats,
     getLogisticsById,
     getLogisticsByOrder,
+    getLogisticsByOrderId,
     getLogisticsByClinic,
     getLogisticsByStatus,
     createReceiveRecord,

@@ -294,6 +294,7 @@ export const MockLogistics: LogisticsRecord[] = [
     signStatus: 'exception',
     exceptionType: 'returned',
     exceptionDescription: '收件人拒收，原因：返工产品，需重新制作',
+    exceptionReportedAt: formatDate(daysAgo(1)),
     exceptionHandled: false,
     notes: '16#单冠，因边缘不密合返工重发',
     items: ['16#单冠（返工）', '返工说明'],
