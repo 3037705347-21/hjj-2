@@ -696,3 +696,120 @@ export interface TechnicianWorkbenchStats {
   avgProcessingMinutes: number
   capacityUsedPercent: number
 }
+
+export type LogisticsType = 'receive' | 'ship'
+
+export const LogisticsTypeLabels: Record<LogisticsType, string> = {
+  'receive': '收件登记',
+  'ship': '成品发货',
+}
+
+export type SignStatus =
+  | 'pending'
+  | 'in-transit'
+  | 'signed'
+  | 'exception'
+
+export const SignStatusLabels: Record<SignStatus, string> = {
+  'pending': '待发货',
+  'in-transit': '运输中',
+  'signed': '已签收',
+  'exception': '异常',
+}
+
+export const SignStatusColors: Record<SignStatus, string> = {
+  'pending': 'bg-slate-50 text-slate-600 border-slate-200',
+  'in-transit': 'bg-blue-50 text-blue-600 border-blue-200',
+  'signed': 'bg-emerald-50 text-emerald-600 border-emerald-200',
+  'exception': 'bg-rose-50 text-rose-600 border-rose-200',
+}
+
+export type ExceptionType =
+  | 'returned'
+  | 'lost'
+  | 'damaged'
+  | 'delayed'
+  | 'address-error'
+  | 'refused'
+  | 'other'
+
+export const ExceptionTypeLabels: Record<ExceptionType, string> = {
+  'returned': '退回',
+  'lost': '丢件',
+  'damaged': '破损',
+  'delayed': '延误',
+  'address-error': '地址错误',
+  'refused': '拒收',
+  'other': '其他',
+}
+
+export type ShippingMethod =
+  | 'sf-express'
+  | 'jd-express'
+  | 'sto-express'
+  | 'yunda-express'
+  | 'zto-express'
+  | 'ems'
+  | 'other'
+
+export const ShippingMethodLabels: Record<ShippingMethod, string> = {
+  'sf-express': '顺丰速运',
+  'jd-express': '京东物流',
+  'sto-express': '申通快递',
+  'yunda-express': '韵达快递',
+  'zto-express': '中通快递',
+  'ems': 'EMS',
+  'other': '其他',
+}
+
+export interface LogisticsTimelineEntry {
+  id: string
+  status: string
+  location?: string
+  description: string
+  operator?: string
+  timestamp: string
+  isException?: boolean
+}
+
+export interface LogisticsRecord {
+  id: string
+  orderId: string
+  orderNumber: string
+  clinicId: string
+  clinicName: string
+  type: LogisticsType
+  receiveTime?: string
+  shipTime?: string
+  signTime?: string
+  shippingMethod: ShippingMethod
+  trackingNumber: string
+  receiverName: string
+  receiverPhone: string
+  receiverAddress: string
+  signStatus: SignStatus
+  exceptionType?: ExceptionType
+  exceptionDescription?: string
+  exceptionHandled?: boolean
+  exceptionHandledAt?: string
+  exceptionHandledBy?: string
+  exceptionResolution?: string
+  notes?: string
+  items?: string[]
+  weight?: number
+  cost?: number
+  operator: string
+  createdAt: string
+  updatedAt: string
+  timeline: LogisticsTimelineEntry[]
+}
+
+export interface LogisticsStats {
+  totalReceive: number
+  totalShip: number
+  pendingShip: number
+  inTransit: number
+  signedToday: number
+  exceptionCount: number
+}
+

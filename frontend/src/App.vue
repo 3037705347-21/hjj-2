@@ -21,6 +21,9 @@ import {
   CalendarClock,
   UserCog,
   Briefcase,
+  Truck,
+  Package,
+  Send,
 } from 'lucide-vue-next'
 import { 
   useRoles, 
@@ -96,6 +99,8 @@ const navItems = computed(() => {
       { label: '今日排产', icon: CalendarClock, path: '/schedule', badge: null },
       { label: '技师任务', icon: Wrench, path: '/technician-tasks', badge: null },
       { label: '诊所管理', icon: Users, path: '/clinics', badge: null },
+      { label: '模型收件', icon: Package, path: '/logistics/receive', badge: null },
+      { label: '成品发货', icon: Send, path: '/logistics/ship', badge: null },
       { label: '数据统计', icon: BarChart3, path: '/', badge: null },
       { label: '系统设置', icon: Settings, path: '/', badge: null }
     )
@@ -140,6 +145,16 @@ const breadcrumbs = computed(() => {
   } else if (route.name === 'clinic-detail') {
     items.push({ label: '诊所管理', path: '/clinics' })
     items.push({ label: '诊所详情' })
+  } else if (route.name === 'logistics-receive') {
+    items.push({ label: '模型收件' })
+  } else if (route.name === 'logistics-ship') {
+    items.push({ label: '成品发货' })
+  } else if (route.name === 'logistics-detail') {
+    items.push({ label: '成品发货', path: '/logistics/ship' })
+    items.push({ label: '物流详情' })
+  } else if (route.name === 'logistics-exception') {
+    items.push({ label: '成品发货', path: '/logistics/ship' })
+    items.push({ label: '异常处理' })
   }
   return items
 })

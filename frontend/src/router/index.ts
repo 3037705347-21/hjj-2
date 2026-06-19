@@ -9,6 +9,10 @@ import Workbench from '@/pages/Workbench.vue'
 import TechnicianTaskList from '@/pages/TechnicianTaskList.vue'
 import TechnicianDetail from '@/pages/TechnicianDetail.vue'
 import ScheduleBoard from '@/pages/ScheduleBoard.vue'
+import ReceiveRegister from '@/pages/ReceiveRegister.vue'
+import ShipList from '@/pages/ShipList.vue'
+import LogisticsDetail from '@/pages/LogisticsDetail.vue'
+import LogisticsException from '@/pages/LogisticsException.vue'
 
 const routes = [
   {
@@ -82,6 +86,30 @@ const routes = [
     name: 'order-detail',
     component: OrderDetail,
     meta: { title: '订单详情' },
+  },
+  {
+    path: '/logistics/receive',
+    name: 'logistics-receive',
+    component: ReceiveRegister,
+    meta: { title: '收件登记' },
+  },
+  {
+    path: '/logistics/ship',
+    name: 'logistics-ship',
+    component: ShipList,
+    meta: { title: '发货管理' },
+  },
+  {
+    path: '/logistics/detail/:id',
+    name: 'logistics-detail',
+    component: LogisticsDetail,
+    meta: { title: '物流详情' },
+  },
+  {
+    path: '/logistics/exception/:id',
+    name: 'logistics-exception',
+    component: LogisticsException,
+    meta: { title: '物流异常处理' },
   },
 ]
 
