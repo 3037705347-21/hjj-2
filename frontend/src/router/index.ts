@@ -2,6 +2,9 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Dashboard from '@/pages/Dashboard.vue'
 import OrderDetail from '@/pages/OrderDetail.vue'
 import OrderForm from '@/pages/OrderForm.vue'
+import ClinicList from '@/pages/ClinicList.vue'
+import ClinicDetail from '@/pages/ClinicDetail.vue'
+import ClinicForm from '@/pages/ClinicForm.vue'
 
 const routes = [
   {
@@ -9,6 +12,30 @@ const routes = [
     name: 'dashboard',
     component: Dashboard,
     meta: { title: '订单看板' },
+  },
+  {
+    path: '/clinics',
+    name: 'clinic-list',
+    component: ClinicList,
+    meta: { title: '诊所管理' },
+  },
+  {
+    path: '/clinic/new',
+    name: 'clinic-new',
+    component: ClinicForm,
+    meta: { title: '新增诊所' },
+  },
+  {
+    path: '/clinic/:id/edit',
+    name: 'clinic-edit',
+    component: ClinicForm,
+    meta: { title: '编辑诊所' },
+  },
+  {
+    path: '/clinic/:id',
+    name: 'clinic-detail',
+    component: ClinicDetail,
+    meta: { title: '诊所详情' },
   },
   {
     path: '/order/new',

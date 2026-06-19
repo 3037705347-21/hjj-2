@@ -22,7 +22,9 @@ import type {
   ReworkStatusTransition,
 } from '../types'
 import { ProcessingStages, ReworkStatusLabels } from '../types'
-import { MockOrders, MockClinics } from '../mock/orders'
+import { MockOrders } from '../mock/orders'
+import { MockClinics } from '../mock/clinics'
+import { useClinics } from './useClinics'
 
 const STORAGE_KEY = 'denture-lab-orders'
 
@@ -239,11 +241,21 @@ export function useOrders() {
   }
 
   function getClinics(): Clinic[] {
-    return MockClinics
+    try {
+      const instance = useClinics()
+      return instance.clinics.value
+    } catch {
+      return MockClinics as Clinic[]
+    }
   }
 
   function getClinicById(id: string): Clinic | undefined {
-    return MockClinics.find((c) => c.id === id)
+    try {
+      const instance = useClinics()
+      return instance.getClinicById(id)
+    } catch {
+      return MockClinics.find((c) => c.id === id) as Clinic | undefined
+    }
   }
 
   function createInitialStageHistory(): StageHistoryEntry[] {

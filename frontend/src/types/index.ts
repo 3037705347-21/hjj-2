@@ -293,13 +293,62 @@ export interface ToothWorkItem {
   notes?: string
 }
 
+export type CooperationStatus = 'active' | 'inactive' | 'pending' | 'suspended'
+
+export const CooperationStatusLabels: Record<CooperationStatus, string> = {
+  'active': '合作中',
+  'inactive': '已终止',
+  'pending': '待审核',
+  'suspended': '已暂停',
+}
+
+export const CooperationStatusColors: Record<CooperationStatus, string> = {
+  'active': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'inactive': 'bg-slate-50 text-slate-600 border-slate-200',
+  'pending': 'bg-amber-50 text-amber-700 border-amber-200',
+  'suspended': 'bg-rose-50 text-rose-700 border-rose-200',
+}
+
+export type SettlementMethod = 'monthly' | 'weekly' | 'per-order' | 'quarterly' | 'prepaid'
+
+export const SettlementMethodLabels: Record<SettlementMethod, string> = {
+  'monthly': '月结',
+  'weekly': '周结',
+  'per-order': '单次结算',
+  'quarterly': '季结',
+  'prepaid': '预充值',
+}
+
+export interface Doctor {
+  id: string
+  name: string
+  title?: string
+  phone?: string
+  specialty?: string
+  isPrimary?: boolean
+}
+
+export interface ClinicStats {
+  totalOrders: number
+  reworkRate: number
+  totalAmount: number
+}
+
 export interface Clinic {
   id: string
   name: string
+  clinicCode: string
   contactPerson: string
   phone: string
   address: string
-  clinicCode: string
+  cooperationStatus: CooperationStatus
+  settlementMethod: SettlementMethod
+  paymentTermDays: number
+  doctors: Doctor[]
+  remarks?: string
+  stats: ClinicStats
+  createdAt: string
+  updatedAt: string
 }
 
 export interface Patient {

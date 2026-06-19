@@ -9,6 +9,7 @@ import {
   AlertCircle,
   FileText,
   User,
+  Users,
   Building2,
   Stethoscope,
   Calendar,
@@ -21,8 +22,12 @@ import {
   RefreshCw,
   Sparkles,
   X,
+  Phone,
+  MapPin,
+  Star,
 } from 'lucide-vue-next'
 import { useOrders } from '../composables/useOrders'
+import { useClinics } from '../composables/useClinics'
 import type {
   Tooth,
   ToothWorkItem,
@@ -32,7 +37,9 @@ import type {
   ImpressionMethod,
   OrderPriority,
   Order,
+  Clinic,
 } from '../types'
+import { SettlementMethodLabels, CooperationStatusLabels, CooperationStatusColors } from '../types'
 import {
   RestorationTypeLabels,
   MaterialTypeLabels,
@@ -53,6 +60,7 @@ const {
   generateOrderNumber,
   generateAnonymousCode,
 } = useOrders()
+const { getClinicById } = useClinics()
 
 type FormMode = 'create' | 'edit' | 'copy'
 
@@ -87,6 +95,25 @@ const form = reactive({
   fullArchShade: 'A3' as ShadeGuide,
   fullArchNotes: '',
 })
+
+const selectedClinic = computed<Clinic | undefined>(() => {
+  if (!form.clinicId) return undefined
+  return getClinicById(form.clinicId) || clinics.find((c) => c.id === form.clinicId) as Clinic | undefined
+})
+
+watch(
+  () => form.clinicId,
+  (newClinicId) => {
+    if (!newClinicId || mode.value === 'edit') return
+    const clinic = getClinicById(newClinicId) || clinics.find((c) => c.id === newClinicId) as Clinic | undefined
+    if (clinic) {
+      if (!form.doctorName.trim() && clinic.doctors.length > 0) {
+        const primary = clinic.doctors.find((d) => d.isPrimary) || clinic.doctors[0]
+        form.doctorName = primary.name
+      }
+    }
+  }
+)
 
 const workItems = ref<ToothWorkItem[]>([])
 
@@ -424,6 +451,7 @@ function loadOrderForEdit(id: string) {
 onMounted(() => {
   const routeMode = route.query.mode as string
   const orderId = route.params.id as string
+  const queryClinicId = route.query.clinicId as string
 
   if (orderId) {
     if (routeMode === 'copy') {
@@ -462,7 +490,11 @@ onMounted(() => {
     mode.value = 'create'
     form.orderNumber = generateOrderNumber()
     form.patientAnonymousCode = generateAnonymousCode()
-    if (clinics.length > 0) form.clinicId = clinics[0].id
+    if (queryClinicId) {
+      form.clinicId = queryClinicId
+    } else if (clinics.length > 0) {
+      form.clinicId = clinics[0].id
+    }
   }
 })
 
@@ -584,33 +616,138 @@ const allRestorationLabels = { ...RestorationTypeLabels }
               诊所与医生信息
             </h2>
           </div>
-          <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1.5">
-                合作诊所 <span class="text-rose-500">*</span>
-              </label>
-              <select
-                v-model="form.clinicId"
-                class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                :class="{ 'border-rose-300 ring-1 ring-rose-200': errors.clinicId }"
-              >
-                <option value="" disabled>请选择诊所</option>
-                <option v-for="c in clinics" :key="c.id" :value="c.id">
-                  {{ c.name }} ({{ c.clinicCode }})
-                </option>
-              </select>
+          <div class="p-5 space-y-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1.5">
+                  合作诊所 <span class="text-rose-500">*</span>
+                </label>
+                <select
+                  v-model="form.clinicId"
+                  class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  :class="{ 'border-rose-300 ring-1 ring-rose-200': errors.clinicId }"
+                >
+                  <option value="" disabled>请选择诊所</option>
+                  <option v-for="c in clinics" :key="c.id" :value="c.id">
+                    {{ c.name }} ({{ c.clinicCode }})
+                  </option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-600 mb-1.5">
+                  医生姓名 <span class="text-rose-500">*</span>
+                </label>
+                <div class="relative">
+                  <input
+                    v-model="form.doctorName"
+                    type="text"
+                    placeholder="例如：李明华"
+                    class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    :class="{ 'border-rose-300 ring-1 ring-rose-200': errors.doctorName }"
+                  />
+                  <div
+                    v-if="selectedClinic && selectedClinic.doctors.length > 0"
+                    class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400"
+                  >
+                    {{ selectedClinic.doctors.length }} 位医生可用
+                  </div>
+                </div>
+              </div>
             </div>
-            <div>
-              <label class="block text-xs font-medium text-slate-600 mb-1.5">
-                医生姓名 <span class="text-rose-500">*</span>
-              </label>
-              <input
-                v-model="form.doctorName"
-                type="text"
-                placeholder="例如：李明华"
-                class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                :class="{ 'border-rose-300 ring-1 ring-rose-200': errors.doctorName }"
-              />
+
+            <div
+              v-if="selectedClinic"
+              class="p-4 rounded-xl bg-gradient-to-br from-slate-50 via-blue-50/40 to-indigo-50/30 border border-slate-200"
+            >
+              <div class="flex items-start justify-between gap-4 flex-wrap">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 flex-wrap mb-2">
+                    <span class="font-semibold text-slate-900">{{ selectedClinic.name }}</span>
+                    <span
+                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium border"
+                      :class="CooperationStatusColors[selectedClinic.cooperationStatus as keyof typeof CooperationStatusColors]"
+                    >
+                      {{ CooperationStatusLabels[selectedClinic.cooperationStatus as keyof typeof CooperationStatusLabels] }}
+                    </span>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-white/70 border border-slate-200 text-slate-500 font-mono">
+                      {{ selectedClinic.clinicCode }}
+                    </span>
+                  </div>
+                  <div class="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-1.5 text-xs text-slate-600">
+                    <div class="inline-flex items-center gap-1.5 min-w-0">
+                      <Users class="w-3 h-3 text-slate-400 flex-shrink-0" />
+                      <span class="truncate">联系人：<span class="font-medium text-slate-800">{{ selectedClinic.contactPerson }}</span></span>
+                    </div>
+                    <div class="inline-flex items-center gap-1.5 min-w-0">
+                      <Phone class="w-3 h-3 text-slate-400 flex-shrink-0" />
+                      <span class="truncate font-mono">{{ selectedClinic.phone }}</span>
+                    </div>
+                    <div class="inline-flex items-center gap-1.5 min-w-0">
+                      <BadgeDollarSign class="w-3 h-3 text-slate-400 flex-shrink-0" />
+                      <span class="truncate">
+                        {{ SettlementMethodLabels[selectedClinic.settlementMethod as keyof typeof SettlementMethodLabels] }}
+                        · {{ selectedClinic.paymentTermDays }}天账期
+                      </span>
+                    </div>
+                    <div class="inline-flex items-start gap-1.5 sm:col-span-3 min-w-0">
+                      <MapPin class="w-3 h-3 text-slate-400 flex-shrink-0 mt-0.5" />
+                      <span class="truncate">{{ selectedClinic.address }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div
+                v-if="selectedClinic.doctors.length > 0"
+                class="mt-4 pt-4 border-t border-slate-200/70"
+              >
+                <div class="text-[11px] font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
+                  <Stethoscope class="w-3 h-3" />
+                  常用医生（点击快速选择）
+                </div>
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    v-for="doc in selectedClinic.doctors"
+                    :key="doc.id"
+                    type="button"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all"
+                    :class="form.doctorName === doc.name
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                      : 'bg-white text-slate-700 border-slate-200 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700'"
+                    @click="form.doctorName = doc.name"
+                  >
+                    <span
+                      class="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold"
+                      :class="form.doctorName === doc.name
+                        ? 'bg-white/20 text-white'
+                        : doc.isPrimary
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-slate-100 text-slate-500'"
+                    >
+                      {{ doc.name.charAt(0) }}
+                    </span>
+                    {{ doc.name }}
+                    <template v-if="doc.title">
+                      <span class="opacity-70">·</span>
+                      <span class="opacity-80">{{ doc.title }}</span>
+                    </template>
+                    <Star
+                      v-if="doc.isPrimary"
+                      class="w-3 h-3"
+                      :class="form.doctorName === doc.name ? 'text-white fill-current' : 'text-amber-500 fill-current'"
+                    />
+                  </button>
+                </div>
+              </div>
+
+              <div
+                v-if="selectedClinic.remarks"
+                class="mt-3 pt-3 border-t border-slate-200/70"
+              >
+                <div class="text-[11px] text-amber-700 bg-amber-50/80 border border-amber-200/60 rounded-lg p-2.5 leading-relaxed">
+                  <span class="font-semibold">备注：</span>{{ selectedClinic.remarks }}
+                </div>
+              </div>
             </div>
           </div>
         </div>

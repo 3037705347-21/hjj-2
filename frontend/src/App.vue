@@ -88,7 +88,7 @@ const navItems = computed(() => {
     items.push(
       { label: '订单看板', icon: LayoutDashboard, path: '/', badge: null },
       { label: '订单列表', icon: ClipboardList, path: '/', badge: null },
-      { label: '诊所管理', icon: Users, path: '/', badge: null },
+      { label: '诊所管理', icon: Users, path: '/clinics', badge: null },
       { label: '技师排程', icon: Package, path: '/', badge: null },
       { label: '数据统计', icon: BarChart3, path: '/', badge: null },
       { label: '系统设置', icon: Settings, path: '/', badge: null }
@@ -108,6 +108,23 @@ const breadcrumbs = computed(() => {
   } else if (route.name === 'order-detail') {
     items.push({ label: '订单看板', path: '/' })
     items.push({ label: '订单详情' })
+  } else if (route.name === 'order-new') {
+    items.push({ label: '订单看板', path: '/' })
+    items.push({ label: '新建订单' })
+  } else if (route.name === 'order-edit') {
+    items.push({ label: '订单看板', path: '/' })
+    items.push({ label: '编辑订单' })
+  } else if (route.name === 'clinic-list') {
+    items.push({ label: '诊所管理' })
+  } else if (route.name === 'clinic-new') {
+    items.push({ label: '诊所管理', path: '/clinics' })
+    items.push({ label: '新增诊所' })
+  } else if (route.name === 'clinic-edit') {
+    items.push({ label: '诊所管理', path: '/clinics' })
+    items.push({ label: '编辑诊所' })
+  } else if (route.name === 'clinic-detail') {
+    items.push({ label: '诊所管理', path: '/clinics' })
+    items.push({ label: '诊所详情' })
   }
   return items
 })
