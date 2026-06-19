@@ -464,3 +464,235 @@ export interface DashboardStats {
   returnedCount: number
   averageTurnaroundDays: number
 }
+
+export type TechnicianSkill =
+  | 'model-scanning'
+  | 'wax-up'
+  | 'casting'
+  | 'porcelain'
+  | 'glazing'
+  | 'finishing'
+  | 'quality-check'
+  | 'design'
+  | 'implant'
+  | 'orthodontics'
+
+export const TechnicianSkillLabels: Record<TechnicianSkill, string> = {
+  'model-scanning': '模型扫描',
+  'wax-up': '蜡型制作',
+  'casting': '铸造/切削',
+  'porcelain': '烤瓷堆瓷',
+  'glazing': '上釉烧结',
+  'finishing': '精磨修整',
+  'quality-check': '质检审核',
+  'design': '数字化设计',
+  'implant': '种植修复',
+  'orthodontics': '正畸矫治',
+}
+
+export const TechnicianSkillColors: Record<TechnicianSkill, string> = {
+  'model-scanning': 'bg-cyan-50 text-cyan-700 border-cyan-200',
+  'wax-up': 'bg-amber-50 text-amber-700 border-amber-200',
+  'casting': 'bg-orange-50 text-orange-700 border-orange-200',
+  'porcelain': 'bg-rose-50 text-rose-700 border-rose-200',
+  'glazing': 'bg-pink-50 text-pink-700 border-pink-200',
+  'finishing': 'bg-teal-50 text-teal-700 border-teal-200',
+  'quality-check': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'design': 'bg-violet-50 text-violet-700 border-violet-200',
+  'implant': 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  'orthodontics': 'bg-sky-50 text-sky-700 border-sky-200',
+}
+
+export type TechnicianStatus = 'on-duty' | 'off-duty' | 'leave' | 'busy'
+
+export const TechnicianStatusLabels: Record<TechnicianStatus, string> = {
+  'on-duty': '在岗',
+  'off-duty': '下班',
+  'leave': '请假',
+  'busy': '繁忙',
+}
+
+export const TechnicianStatusColors: Record<TechnicianStatus, string> = {
+  'on-duty': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'off-duty': 'bg-slate-50 text-slate-600 border-slate-200',
+  'leave': 'bg-amber-50 text-amber-700 border-amber-200',
+  'busy': 'bg-rose-50 text-rose-700 border-rose-200',
+}
+
+export type TaskStatus =
+  | 'pending'
+  | 'assigned'
+  | 'accepted'
+  | 'in-progress'
+  | 'paused'
+  | 'completed'
+  | 'transferred'
+  | 'exception'
+
+export const TaskStatusLabels: Record<TaskStatus, string> = {
+  'pending': '待分配',
+  'assigned': '已分配',
+  'accepted': '已接单',
+  'in-progress': '处理中',
+  'paused': '已暂停',
+  'completed': '已完成',
+  'transferred': '已转派',
+  'exception': '异常',
+}
+
+export const TaskStatusColors: Record<TaskStatus, string> = {
+  'pending': 'bg-slate-50 text-slate-600 border-slate-200',
+  'assigned': 'bg-blue-50 text-blue-700 border-blue-200',
+  'accepted': 'bg-cyan-50 text-cyan-700 border-cyan-200',
+  'in-progress': 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  'paused': 'bg-amber-50 text-amber-700 border-amber-200',
+  'completed': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'transferred': 'bg-violet-50 text-violet-700 border-violet-200',
+  'exception': 'bg-rose-50 text-rose-700 border-rose-200',
+}
+
+export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent'
+
+export const TaskPriorityLabels: Record<TaskPriority, string> = {
+  'low': '低',
+  'normal': '普通',
+  'high': '高',
+  'urgent': '紧急',
+}
+
+export const TaskPriorityColors: Record<TaskPriority, string> = {
+  'low': 'bg-slate-50 text-slate-600 border-slate-200',
+  'normal': 'bg-blue-50 text-blue-700 border-blue-200',
+  'high': 'bg-orange-50 text-orange-700 border-orange-200',
+  'urgent': 'bg-rose-50 text-rose-700 border-rose-200',
+}
+
+export type ExceptionType =
+  | 'material-shortage'
+  | 'equipment-failure'
+  | 'skill-gap'
+  | 'quality-issue'
+  | 'other'
+
+export const ExceptionTypeLabels: Record<ExceptionType, string> = {
+  'material-shortage': '材料不足',
+  'equipment-failure': '设备故障',
+  'skill-gap': '技能不足',
+  'quality-issue': '质量问题',
+  'other': '其他异常',
+}
+
+export interface TaskAssignment {
+  id: string
+  orderId: string
+  orderNumber: string
+  stage: ProcessingStage
+  technicianId: string
+  technicianName: string
+  status: TaskStatus
+  priority: TaskPriority
+  assignedAt: string
+  acceptedAt?: string
+  startedAt?: string
+  completedAt?: string
+  pausedAt?: string
+  transferredAt?: string
+  exceptionAt?: string
+  estimatedCompletionTime?: string
+  reworkCount: number
+  notes?: string
+  exceptionType?: ExceptionType
+  exceptionReason?: string
+  transferredFrom?: string
+  transferredTo?: string
+  transferReason?: string
+  assignedBy?: string
+  workItemsCount?: number
+  clinicName?: string
+  deliveryDate?: string
+  orderPriority?: OrderPriority
+}
+
+export interface Technician {
+  id: string
+  name: string
+  employeeCode: string
+  phone?: string
+  email?: string
+  status: TechnicianStatus
+  skills: TechnicianSkill[]
+  primarySkill?: TechnicianSkill
+  currentTasksCount: number
+  capacityLimit: number
+  dailyCapacity: number
+  todayCompleted: number
+  totalReworkCount: number
+  avgTaskDurationMinutes: number
+  joinedAt: string
+  avatarColor?: string
+  department?: string
+  level?: 'junior' | 'intermediate' | 'senior' | 'expert'
+  certifications?: string[]
+}
+
+export const TechnicianLevelLabels: Record<NonNullable<Technician['level']>, string> = {
+  'junior': '初级技师',
+  'intermediate': '中级技师',
+  'senior': '高级技师',
+  'expert': '专家技师',
+}
+
+export const TechnicianLevelColors: Record<NonNullable<Technician['level']>, string> = {
+  'junior': 'bg-slate-50 text-slate-700 border-slate-200',
+  'intermediate': 'bg-blue-50 text-blue-700 border-blue-200',
+  'senior': 'bg-violet-50 text-violet-700 border-violet-200',
+  'expert': 'bg-amber-50 text-amber-700 border-amber-200',
+}
+
+export interface TaskHandoverRecord {
+  id: string
+  taskId: string
+  orderId: string
+  stage: ProcessingStage
+  fromTechnicianId: string
+  fromTechnicianName: string
+  toTechnicianId: string
+  toTechnicianName: string
+  handedAt: string
+  reason: string
+  handedBy: string
+  notes?: string
+}
+
+export interface TechnicianDailyStat {
+  technicianId: string
+  technicianName: string
+  date: string
+  assignedCount: number
+  acceptedCount: number
+  completedCount: number
+  reworkCount: number
+  exceptionCount: number
+  avgDurationMinutes: number
+  capacityUtilization: number
+}
+
+export interface ScheduleBoardSlot {
+  stage: ProcessingStage
+  stageLabel: string
+  tasks: TaskAssignment[]
+  estimatedCapacity: number
+  usedCapacity: number
+}
+
+export interface TechnicianWorkbenchStats {
+  technicianId: string
+  pendingCount: number
+  inProgressCount: number
+  completedTodayCount: number
+  exceptionCount: number
+  overdueCount: number
+  reworkCount: number
+  avgProcessingMinutes: number
+  capacityUsedPercent: number
+}

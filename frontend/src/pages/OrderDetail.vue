@@ -37,18 +37,23 @@ import {
   ThumbsDown,
   ArrowRight,
   FileSearch,
+  Users,
+  UserCog,
+  ClipboardList,
 } from 'lucide-vue-next'
 import StatusBadge from '../components/StatusBadge.vue'
-import PriorityBadge from '../components/PriorityBadge.vue'
 import ToothChart from '../components/ToothChart.vue'
 import StageTimeline from '../components/StageTimeline.vue'
 import AttachmentCard from '../components/AttachmentCard.vue'
 import CommunicationCard from '../components/CommunicationCard.vue'
 import ReworkFormDialog from '../components/ReworkFormDialog.vue'
 import ReworkDetailPanel from '../components/ReworkDetailPanel.vue'
+import TaskAssignDialog from '../components/TaskAssignDialog.vue'
+import PriorityBadge from '../components/PriorityBadge.vue'
 import { useOrders } from '../composables/useOrders'
 import { useRoles } from '../composables/useRoles'
-import type { StageHistoryEntry, ProcessingStage, ReturnRecord, ReworkStatus, ReworkSourceStage, ReworkProblemType, ReworkRootCause, ReworkResponsibility } from '../types'
+import { useTechnicians } from '../composables/useTechnicians'
+import type { StageHistoryEntry, ProcessingStage, ReturnRecord, ReworkStatus, ReworkSourceStage, ReworkProblemType, ReworkRootCause, ReworkResponsibility, TaskAssignment, TaskPriority } from '../types'
 import {
   ProcessingStages,
   RestorationTypeLabels,
@@ -60,6 +65,11 @@ import {
   ReworkProblemTypeLabels,
   ReworkRootCauseLabels,
   ReworkResponsibilityLabels,
+  TaskStatusLabels,
+  TaskStatusColors,
+  TaskPriorityLabels,
+  TaskPriorityColors,
+  TechnicianSkillLabels,
 } from '../types'
 
 const route = useRoute()
@@ -90,6 +100,104 @@ const {
   canEditField,
   canPerformAction,
 } = useRoles()
+
+const {
+  getTasksByOrder,
+  getTaskHandovers,
+  getTechnician,
+  assignTask,
+  updateTaskTechnician,
+  technicians,
+  acceptTask,
+  startTask,
+  completeTask,
+  syncTaskWithStageHistory,
+} = useTechnicians()
+
+const orderTasks = computed<TaskAssignment[]>(() => {
+  if (!order.value) return []
+  return getTasksByOrder(order.value.id)
+})
+
+const showTaskAssignDialog = ref(false)
+const selectedStageForAssign = ref<ProcessingStage | null>(null)
+const assignMode = ref<'assign' | 'transfer'>('assign')
+const existingTaskForAssign = computed<TaskAssignment | undefined>(() => {
+  if (!selectedStageForAssign.value || !order.value) return undefined
+  return orderTasks.value.find((t) => t.stage === selectedStageForAssign.value)
+})
+
+function getTaskForStage(stage: ProcessingStage): TaskAssignment | undefined {
+  return orderTasks.value.find((t) => t.stage === stage)
+}
+
+function getHandoversForStage(stage: ProcessingStage) {
+  const task = getTaskForStage(stage)
+  if (!task) return []
+  return getTaskHandovers(task.id)
+}
+
+function openAssignDialogForStage(stage: ProcessingStage) {
+  selectedStageForAssign.value = stage
+  const task = getTaskForStage(stage)
+  assignMode.value = task && task.technicianId ? 'transfer' : 'assign'
+  showTaskAssignDialog.value = true
+}
+
+function handleTaskAssignSubmit(params: {
+  technicianId: string
+  technicianName: string
+  priority: TaskPriority
+  estimatedCompletionTime: string
+  notes: string
+  assignedBy: string
+}) {
+  if (!selectedStageForAssign.value || !order.value) return
+
+  const stage = selectedStageForAssign.value
+  const existingTask = getTaskForStage(stage)
+
+  if (existingTask && existingTask.technicianId) {
+    updateTaskTechnician(
+      existingTask.id,
+      params.technicianId,
+      params.technicianName,
+      params.notes || '订单内转派',
+      params.assignedBy
+    )
+    if (existingTask.id) {
+      const idx = orderTasks.value.findIndex((t) => t.id === existingTask.id)
+      if (idx >= 0) {
+        orderTasks.value[idx].priority = params.priority
+        orderTasks.value[idx].estimatedCompletionTime = params.estimatedCompletionTime
+      }
+    }
+  } else {
+    assignTask({
+      orderId: order.value.id,
+      orderNumber: order.value.orderNumber,
+      stage,
+      technicianId: params.technicianId,
+      technicianName: params.technicianName,
+      priority: params.priority,
+      estimatedCompletionTime: params.estimatedCompletionTime,
+      notes: params.notes,
+      assignedBy: params.assignedBy,
+      workItemsCount: order.value.workItems.filter((w) => w.toothNumber !== 'all').length,
+      clinicName: order.value.clinic.name,
+      deliveryDate: order.value.deliveryDate,
+      orderPriority: order.value.priority,
+    })
+  }
+
+  showTaskAssignDialog.value = false
+  selectedStageForAssign.value = null
+}
+
+function goToTechnicianDetail(technicianId?: string) {
+  if (!technicianId) return
+  router.push(`/technician/${technicianId}`)
+}
 
 const canViewClinicInfo = computed(() => canViewField('clinicInfo'))
 const canEditClinicInfo = computed(() => canEditField('clinicInfo'))
@@ -769,6 +877,72 @@ function goToNewOrder() {
                       <Wrench class="w-3 h-3" />
                       {{ entry.technician }}
                     </span>
+                    <template v-if="canViewResponsibleTechnician && getTaskForStage(entry.stage)">
+                      <span
+                        class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border"
+                        :class="TaskStatusColors[getTaskForStage(entry.stage)!.status]"
+                      >
+                        {{ TaskStatusLabels[getTaskForStage(entry.stage)!.status] }}
+                      </span>
+                      <span
+                        class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border"
+                        :class="TaskPriorityColors[getTaskForStage(entry.stage)!.priority]"
+                      >
+                        {{ TaskPriorityLabels[getTaskForStage(entry.stage)!.priority] }}优先级
+                      </span>
+                      <span
+                        v-if="(getTaskForStage(entry.stage)!.reworkCount || 0) > 0"
+                        class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-50 text-rose-600 border border-rose-200"
+                      >
+                        <RefreshCw class="w-2.5 h-2.5" />
+                        返工{{ getTaskForStage(entry.stage)!.reworkCount }}次
+                      </span>
+                      <span
+                        v-if="getTaskForStage(entry.stage)!.estimatedCompletionTime"
+                        class="inline-flex items-center gap-1"
+                      >
+                        <Clock class="w-3 h-3" />
+                        预计{{ formatShortDate(getTaskForStage(entry.stage)!.estimatedCompletionTime!) }}
+                      </span>
+                    </template>
+                  </div>
+
+                  <div
+                    v-if="canViewResponsibleTechnician && getTaskForStage(entry.stage) && getHandoversForStage(entry.stage).length > 0"
+                    class="mb-2 p-2.5 bg-violet-50/60 border border-violet-100 rounded-lg"
+                  >
+                    <div class="text-[10px] font-semibold text-violet-700 mb-1.5 flex items-center gap-1">
+                      <ArrowRight class="w-3 h-3" />
+                      接手记录（{{ getHandoversForStage(entry.stage).length }}次转派）
+                    </div>
+                    <div class="space-y-1.5">
+                      <div
+                        v-for="handover in getHandoversForStage(entry.stage)"
+                        :key="handover.id"
+                        class="flex items-center gap-2 text-[11px]"
+                      >
+                        <span class="text-slate-500">{{ formatDate(handover.handedAt) }}</span>
+                        <span class="font-medium text-slate-700">{{ handover.fromTechnicianName }}</span>
+                        <ArrowRight class="w-3 h-3 text-violet-400" />
+                        <span class="font-medium text-violet-700">{{ handover.toTechnicianName }}</span>
+                        <span class="text-slate-400">|</span>
+                        <span class="text-slate-500 truncate">{{ handover.reason }}</span>
+                        <span class="text-slate-400">操作：{{ handover.handedBy }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div
+                    v-if="canEditResponsibleTechnicianAction && !['received', 'shipped', 'delivered'].includes(entry.stage)"
+                    class="mb-2 flex items-center justify-end"
+                  >
+                    <button
+                      class="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium text-violet-700 bg-violet-50 border border-violet-200 rounded-md hover:bg-violet-100 transition-colors"
+                      @click="openAssignDialogForStage(entry.stage)"
+                    >
+                      <Users class="w-3 h-3" />
+                      {{ getTaskForStage(entry.stage)?.technicianId ? '转派任务' : '分配技师' }}
+                    </button>
                   </div>
 
                   <p
@@ -973,6 +1147,178 @@ function goToNewOrder() {
             >
               <AlertTriangle class="w-3.5 h-3.5" />
               发起首次返工
+            </button>
+          </div>
+        </div>
+
+        <div
+          v-if="canViewResponsibleTechnician"
+          class="bg-white rounded-xl border border-slate-200 overflow-hidden"
+        >
+          <div
+            class="px-5 py-4 border-b border-slate-100 flex items-center justify-between"
+          >
+            <div class="flex items-center gap-2">
+              <div
+                class="w-8 h-8 rounded-lg bg-violet-50 border border-violet-100 flex items-center justify-center"
+              >
+                <Users class="w-4 h-4 text-violet-600" />
+              </div>
+              <div>
+                <h2 class="text-base font-semibold text-slate-800">
+                  技师排程与责任分配
+                </h2>
+                <p class="text-xs text-slate-500">
+                  各阶段任务分配、接手记录和进度状态
+                </p>
+              </div>
+            </div>
+            <span class="text-xs text-slate-500">
+              共 {{ ProcessingStages.filter((s) => !['received', 'shipped', 'delivered'].includes(s.stage)).length }} 个加工阶段
+            </span>
+          </div>
+          <div class="divide-y divide-slate-100">
+            <div
+              v-for="stage in ProcessingStages.filter((s) => !['received', 'shipped', 'delivered'].includes(s.stage))"
+              :key="stage.stage"
+              class="px-5 py-3 hover:bg-slate-50/50 transition-colors"
+            >
+              <div class="flex items-start justify-between gap-4">
+                <div class="flex items-start gap-3 min-w-0 flex-1">
+                  <div
+                    class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                    :class="
+                      order.currentStage === stage.stage
+                        ? 'bg-blue-100 border border-blue-200'
+                        : ProcessingStages.findIndex((s) => s.stage === order.currentStage) >
+                          ProcessingStages.findIndex((s) => s.stage === stage.stage)
+                        ? 'bg-emerald-100 border border-emerald-200'
+                        : 'bg-slate-100 border border-slate-200'
+                    "
+                  >
+                    <CheckCircle2
+                      v-if="ProcessingStages.findIndex((s) => s.stage === order.currentStage) > ProcessingStages.findIndex((s) => s.stage === stage.stage)"
+                      class="w-4 h-4 text-emerald-600"
+                    />
+                    <div
+                      v-else-if="order.currentStage === stage.stage"
+                      class="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"
+                    ></div>
+                    <div v-else class="w-2.5 h-2.5 rounded-full bg-slate-400"></div>
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2 flex-wrap mb-1">
+                      <span class="font-semibold text-sm text-slate-800">{{ stage.label }}</span>
+                      <span
+                        v-if="order.currentStage === stage.stage"
+                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700"
+                      >
+                        当前阶段
+                      </span>
+                    </div>
+                    <div class="text-[11px] text-slate-500 mb-2">{{ stage.description }}</div>
+
+                    <template v-if="getTaskForStage(stage.stage)">
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <div
+                          class="flex items-center gap-1.5 p-1.5 bg-slate-50 rounded-lg border border-slate-200 cursor-pointer hover:border-violet-300 hover:bg-violet-50/50 transition-colors"
+                          @click="goToTechnicianDetail(getTaskForStage(stage.stage)!.technicianId)"
+                        >
+                          <div
+                            v-if="getTaskForStage(stage.stage)!.technicianId"
+                            class="w-6 h-6 rounded-md flex items-center justify-center text-white text-[10px] font-bold"
+                            :class="`bg-gradient-to-br ${technicians.find((t) => t.id === getTaskForStage(stage.stage)!.technicianId)?.avatarColor || 'from-slate-400 to-slate-600'}`"
+                          >
+                            {{ getTaskForStage(stage.stage)!.technicianName.charAt(0) }}
+                          </div>
+                          <div
+                            v-else
+                            class="w-6 h-6 rounded-md flex items-center justify-center bg-slate-200"
+                          >
+                            <User class="w-3.5 h-3.5 text-slate-500" />
+                          </div>
+                          <span class="text-xs font-medium text-slate-700">
+                            {{ getTaskForStage(stage.stage)!.technicianName || '待分配' }}
+                          </span>
+                        </div>
+
+                        <span
+                          class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium border"
+                          :class="TaskStatusColors[getTaskForStage(stage.stage)!.status]"
+                        >
+                          {{ TaskStatusLabels[getTaskForStage(stage.stage)!.status] }}
+                        </span>
+                        <span
+                          class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium border"
+                          :class="TaskPriorityColors[getTaskForStage(stage.stage)!.priority]"
+                        >
+                          {{ TaskPriorityLabels[getTaskForStage(stage.stage)!.priority] }}
+                        </span>
+                        <span
+                          v-if="(getTaskForStage(stage.stage)!.reworkCount || 0) > 0"
+                          class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] bg-rose-50 text-rose-700 border border-rose-200"
+                        >
+                          <RefreshCw class="w-2.5 h-2.5" />
+                          返工{{ getTaskForStage(stage.stage)!.reworkCount }}次
+                        </span>
+                      </div>
+
+                      <div
+                        v-if="getTaskForStage(stage.stage)!.estimatedCompletionTime"
+                        class="mt-1.5 text-[10px] text-slate-500 flex items-center gap-1"
+                      >
+                        <Clock class="w-3 h-3" />
+                        预计完成：{{ formatShortDate(getTaskForStage(stage.stage)!.estimatedCompletionTime!) }}
+                      </div>
+
+                      <div
+                        v-if="getHandoversForStage(stage.stage).length > 0"
+                        class="mt-2 text-[10px] text-violet-600 flex items-center gap-1 cursor-pointer hover:text-violet-700"
+                      >
+                        <ArrowRight class="w-3 h-3" />
+                        包含 {{ getHandoversForStage(stage.stage).length }} 次转派接手记录
+                      </div>
+                    </template>
+                    <template v-else>
+                      <div class="flex items-center gap-2">
+                        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] bg-slate-100 text-slate-500 border border-slate-200">
+                          <Clock class="w-3 h-3" />
+                          待分配技师
+                        </span>
+                        <span class="text-[10px] text-slate-400">
+                          预计处理：{{ stage.estimatedDurationDays }} 天
+                        </span>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+
+                <div class="flex-shrink-0">
+                  <button
+                    v-if="canEditResponsibleTechnicianAction"
+                    class="p-1.5 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
+                    title="分配/转派"
+                    @click="openAssignDialogForStage(stage.stage)"
+                  >
+                    <UserCog class="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div
+            v-if="canEditResponsibleTechnicianAction"
+            class="px-5 py-3 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between"
+          >
+            <span class="text-[11px] text-slate-500">
+              提示：点击「分配」按钮可为各阶段指定责任技师，支持转派和异常处理
+            </span>
+            <button
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-violet-700 bg-violet-50 border border-violet-200 rounded-lg hover:bg-violet-100 transition-colors"
+              @click="router.push('/technician-tasks')"
+            >
+              <ClipboardList class="w-3.5 h-3.5" />
+              查看全部任务
             </button>
           </div>
         </div>
@@ -1381,5 +1727,21 @@ function goToNewOrder() {
     @start-rectification="handleStartRectification"
     @submit-for-recheck="handleSubmitForRecheck"
     @close-rework="handleCloseRework"
+  />
+
+  <TaskAssignDialog
+    :show="showTaskAssignDialog"
+    :is-transfer="assignMode === 'transfer'"
+    :order-id="order?.id"
+    :order-number="order?.orderNumber"
+    :stage="selectedStageForAssign || undefined"
+    :work-items-count="order?.workItems.filter((w) => w.toothNumber !== 'all').length"
+    :clinic-name="order?.clinic.name"
+    :delivery-date="order?.deliveryDate"
+    :order-priority="order?.priority"
+    :existing-technician-id="existingTaskForAssign?.technicianId"
+    :existing-technician-name="existingTaskForAssign?.technicianName"
+    @close="showTaskAssignDialog = false"
+    @submit="handleTaskAssignSubmit"
   />
 </template>

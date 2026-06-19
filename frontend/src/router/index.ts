@@ -5,6 +5,10 @@ import OrderForm from '@/pages/OrderForm.vue'
 import ClinicList from '@/pages/ClinicList.vue'
 import ClinicDetail from '@/pages/ClinicDetail.vue'
 import ClinicForm from '@/pages/ClinicForm.vue'
+import Workbench from '@/pages/Workbench.vue'
+import TechnicianTaskList from '@/pages/TechnicianTaskList.vue'
+import TechnicianDetail from '@/pages/TechnicianDetail.vue'
+import ScheduleBoard from '@/pages/ScheduleBoard.vue'
 
 const routes = [
   {
@@ -12,6 +16,30 @@ const routes = [
     name: 'dashboard',
     component: Dashboard,
     meta: { title: '订单看板' },
+  },
+  {
+    path: '/schedule',
+    name: 'schedule-board',
+    component: ScheduleBoard,
+    meta: { title: '今日排产看板' },
+  },
+  {
+    path: '/technician-tasks',
+    name: 'technician-task-list',
+    component: TechnicianTaskList,
+    meta: { title: '技师任务列表' },
+  },
+  {
+    path: '/technician/:id',
+    name: 'technician-detail',
+    component: TechnicianDetail,
+    meta: { title: '技师详情' },
+  },
+  {
+    path: '/workbench',
+    name: 'workbench',
+    component: Workbench,
+    meta: { title: '技师工作台' },
   },
   {
     path: '/clinics',

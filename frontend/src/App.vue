@@ -18,6 +18,9 @@ import {
   FileText,
   Wrench,
   UserCircle,
+  CalendarClock,
+  UserCog,
+  Briefcase,
 } from 'lucide-vue-next'
 import { 
   useRoles, 
@@ -37,8 +40,10 @@ import {
   getRoleSpecificStages,
   getDashboardConfig,
 } from './composables/useRoles'
+import { provideTechnicians } from './composables/useTechnicians'
 
 provideRole()
+provideTechnicians()
 
 const route = useRoute()
 const router = useRouter()
@@ -80,16 +85,17 @@ const navItems = computed(() => {
     )
   } else if (role === 'technician') {
     items.push(
-      { label: '我的任务', icon: Wrench, path: '/', badge: null },
-      { label: '工艺备注', icon: FileText, path: '/', badge: null },
+      { label: '我的工作台', icon: Briefcase, path: '/workbench', badge: null },
+      { label: '今日排产', icon: CalendarClock, path: '/schedule', badge: null },
+      { label: '任务列表', icon: Wrench, path: '/technician-tasks', badge: null },
       { label: '个人设置', icon: UserCircle, path: '/', badge: null }
     )
   } else {
     items.push(
       { label: '订单看板', icon: LayoutDashboard, path: '/', badge: null },
-      { label: '订单列表', icon: ClipboardList, path: '/', badge: null },
+      { label: '今日排产', icon: CalendarClock, path: '/schedule', badge: null },
+      { label: '技师任务', icon: Wrench, path: '/technician-tasks', badge: null },
       { label: '诊所管理', icon: Users, path: '/clinics', badge: null },
-      { label: '技师排程', icon: Package, path: '/', badge: null },
       { label: '数据统计', icon: BarChart3, path: '/', badge: null },
       { label: '系统设置', icon: Settings, path: '/', badge: null }
     )
@@ -105,6 +111,15 @@ const breadcrumbs = computed(() => {
   const items: { label: string; path?: string }[] = []
   if (route.name === 'dashboard') {
     items.push({ label: '订单看板' })
+  } else if (route.name === 'schedule-board') {
+    items.push({ label: '今日排产看板' })
+  } else if (route.name === 'technician-task-list') {
+    items.push({ label: '技师任务列表' })
+  } else if (route.name === 'technician-detail') {
+    items.push({ label: '技师任务列表', path: '/technician-tasks' })
+    items.push({ label: '技师详情' })
+  } else if (route.name === 'workbench') {
+    items.push({ label: '技师工作台' })
   } else if (route.name === 'order-detail') {
     items.push({ label: '订单看板', path: '/' })
     items.push({ label: '订单详情' })
