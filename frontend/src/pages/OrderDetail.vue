@@ -43,6 +43,7 @@ import {
   ExternalLink,
   Package,
   Send,
+  Calculator,
 } from 'lucide-vue-next'
 import StatusBadge from '../components/StatusBadge.vue'
 import ToothChart from '../components/ToothChart.vue'
@@ -586,6 +587,11 @@ function handleCopyOrder() {
 function goToNewOrder() {
   router.push('/order/new')
 }
+
+function goToQuote() {
+  if (!order.value) return
+  router.push(`/order/${order.value.id}/quote`)
+}
 </script>
 
 <template>
@@ -674,6 +680,13 @@ function goToNewOrder() {
             >
               <Pencil class="w-4 h-4" />
               编辑
+            </button>
+            <button
+              class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors"
+              @click="goToQuote"
+            >
+              <Calculator class="w-4 h-4" />
+              报价
             </button>
           </div>
 
@@ -1806,17 +1819,21 @@ function goToNewOrder() {
             </div>
             <div
               v-if="canViewTotalAmount && order.totalAmount"
-              class="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-100"
+              class="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-100 cursor-pointer hover:bg-blue-100 transition-colors"
+              @click="goToQuote"
             >
               <div class="flex items-center gap-2 text-slate-700">
                 <BadgeDollarSign class="w-4 h-4 text-blue-600" />
                 <span class="font-medium">订单总金额</span>
               </div>
-              <span
-                class="text-xl font-bold text-blue-700 tracking-tight"
-              >
-                ¥{{ order.totalAmount.toLocaleString() }}
-              </span>
+              <div class="flex items-center gap-2">
+                <span
+                  class="text-xl font-bold text-blue-700 tracking-tight"
+                >
+                  ¥{{ order.totalAmount.toLocaleString() }}
+                </span>
+                <ChevronRight class="w-4 h-4 text-blue-500" />
+              </div>
             </div>
           </div>
         </div>

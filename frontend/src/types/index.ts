@@ -824,3 +824,180 @@ export interface LogisticsStats {
   exceptionCount: number
 }
 
+export type PriceRuleStatus = 'active' | 'inactive'
+
+export const PriceRuleStatusLabels: Record<PriceRuleStatus, string> = {
+  active: '启用',
+  inactive: '禁用',
+}
+
+export const PriceRuleStatusColors: Record<PriceRuleStatus, string> = {
+  active: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  inactive: 'bg-slate-50 text-slate-600 border-slate-200',
+}
+
+export interface PriceRule {
+  id: string
+  name: string
+  restorationType: RestorationType
+  material: MaterialType
+  priority: OrderPriority
+  unitPrice: number
+  surchargeRate: number
+  reworkChargeable: boolean
+  reworkChargeRate: number
+  discount: number
+  status: PriceRuleStatus
+  description?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface QuoteItem {
+  id: string
+  orderId: string
+  workItemIndex: number
+  toothNumber: string
+  restorationType: RestorationType
+  material: MaterialType
+  priority: OrderPriority
+  unitPrice: number
+  quantity: number
+  surcharge: number
+  surchargeRate: number
+  discount: number
+  discountAmount: number
+  isRework: boolean
+  reworkCharge: number
+  reworkChargeRate: number
+  subtotal: number
+  priceRuleId?: string
+  notes?: string
+}
+
+export interface OrderQuote {
+  id: string
+  orderId: string
+  orderNumber: string
+  clinicId: string
+  clinicName: string
+  items: QuoteItem[]
+  subtotal: number
+  surchargeTotal: number
+  discountTotal: number
+  reworkChargeTotal: number
+  totalAmount: number
+  receivedAmount: number
+  unpaidAmount: number
+  settlementCycle: SettlementMethod
+  invoiceStatus: InvoiceStatus
+  createdAt: string
+  updatedAt: string
+}
+
+export type InvoiceStatus = 'unissued' | 'issued' | 'paid' | 'partial'
+
+export const InvoiceStatusLabels: Record<InvoiceStatus, string> = {
+  unissued: '未开票',
+  issued: '已开票',
+  paid: '已收款',
+  partial: '部分收款',
+}
+
+export const InvoiceStatusColors: Record<InvoiceStatus, string> = {
+  unissued: 'bg-slate-50 text-slate-600 border-slate-200',
+  issued: 'bg-blue-50 text-blue-700 border-blue-200',
+  paid: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  partial: 'bg-amber-50 text-amber-700 border-amber-200',
+}
+
+export type StatementStatus = 'pending' | 'confirmed' | 'paid' | 'overdue'
+
+export const StatementStatusLabels: Record<StatementStatus, string> = {
+  pending: '待确认',
+  confirmed: '已确认',
+  paid: '已结清',
+  overdue: '已逾期',
+}
+
+export const StatementStatusColors: Record<StatementStatus, string> = {
+  pending: 'bg-amber-50 text-amber-700 border-amber-200',
+  confirmed: 'bg-blue-50 text-blue-700 border-blue-200',
+  paid: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  overdue: 'bg-rose-50 text-rose-700 border-rose-200',
+}
+
+export interface StatementItem {
+  id: string
+  statementId: string
+  orderId: string
+  orderNumber: string
+  orderDate: string
+  deliveryDate: string
+  totalAmount: number
+  workItemsCount: number
+  isRework: boolean
+}
+
+export interface Statement {
+  id: string
+  statementNumber: string
+  clinicId: string
+  clinicName: string
+  month: string
+  status: StatementStatus
+  orderCount: number
+  totalAmount: number
+  paidAmount: number
+  unpaidAmount: number
+  invoiceStatus: InvoiceStatus
+  invoiceNumber?: string
+  dueDate: string
+  paymentDate?: string
+  remark?: string
+  items: StatementItem[]
+  createdAt: string
+  updatedAt: string
+  confirmedAt?: string
+  confirmedBy?: string
+}
+
+export interface MonthlySettlement {
+  id: string
+  month: string
+  clinicId: string
+  clinicName: string
+  orderCount: number
+  totalAmount: number
+  paidAmount: number
+  unpaidAmount: number
+  invoiceStatus: InvoiceStatus
+  settlementMethod: SettlementMethod
+  paymentTermDays: number
+  statements: Statement[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PriceCalculationParams {
+  restorationType: RestorationType
+  material: MaterialType
+  priority: OrderPriority
+  quantity?: number
+  isRework?: boolean
+  discount?: number
+}
+
+export interface PriceCalculationResult {
+  unitPrice: number
+  quantity: number
+  surchargeRate: number
+  surcharge: number
+  discount: number
+  discountAmount: number
+  reworkChargeRate: number
+  reworkCharge: number
+  subtotal: number
+  priceRuleId?: string
+}
+

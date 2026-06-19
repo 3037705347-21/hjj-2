@@ -23,6 +23,9 @@ import {
   Briefcase,
   Truck,
   Send,
+  Tag,
+  Receipt,
+  Calculator,
 } from 'lucide-vue-next'
 import { 
   useRoles, 
@@ -100,6 +103,8 @@ const navItems = computed(() => {
       { label: '诊所管理', icon: Users, path: '/clinics', badge: null },
       { label: '模型收件', icon: Package, path: '/logistics/receive', badge: null },
       { label: '成品发货', icon: Send, path: '/logistics/ship', badge: null },
+      { label: '对账单', icon: Receipt, path: '/statements', badge: null },
+      { label: '价格规则', icon: Tag, path: '/pricing/rules', badge: null },
       { label: '数据统计', icon: BarChart3, path: '/', badge: null },
       { label: '系统设置', icon: Settings, path: '/', badge: null }
     )
@@ -154,6 +159,16 @@ const breadcrumbs = computed(() => {
   } else if (route.name === 'logistics-exception') {
     items.push({ label: '成品发货', path: '/logistics/ship' })
     items.push({ label: '异常处理' })
+  } else if (route.name === 'price-rule-config') {
+    items.push({ label: '价格规则配置' })
+  } else if (route.name === 'order-quote-detail') {
+    items.push({ label: '订单看板', path: '/' })
+    items.push({ label: '订单报价明细' })
+  } else if (route.name === 'statement-list') {
+    items.push({ label: '对账单列表' })
+  } else if (route.name === 'monthly-settlement-detail') {
+    items.push({ label: '对账单列表', path: '/statements' })
+    items.push({ label: '月度结算详情' })
   }
   return items
 })

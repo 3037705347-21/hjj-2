@@ -13,6 +13,10 @@ import ReceiveRegister from '@/pages/ReceiveRegister.vue'
 import ShipList from '@/pages/ShipList.vue'
 import LogisticsDetail from '@/pages/LogisticsDetail.vue'
 import LogisticsException from '@/pages/LogisticsException.vue'
+import PriceRuleConfig from '@/pages/PriceRuleConfig.vue'
+import OrderQuoteDetail from '@/pages/OrderQuoteDetail.vue'
+import StatementList from '@/pages/StatementList.vue'
+import MonthlySettlementDetail from '@/pages/MonthlySettlementDetail.vue'
 
 const routes = [
   {
@@ -110,6 +114,30 @@ const routes = [
     name: 'logistics-exception',
     component: LogisticsException,
     meta: { title: '物流异常处理' },
+  },
+  {
+    path: '/pricing/rules',
+    name: 'price-rule-config',
+    component: PriceRuleConfig,
+    meta: { title: '价格规则配置' },
+  },
+  {
+    path: '/order/:orderId/quote',
+    name: 'order-quote-detail',
+    component: OrderQuoteDetail,
+    meta: { title: '订单报价明细' },
+  },
+  {
+    path: '/statements',
+    name: 'statement-list',
+    component: StatementList,
+    meta: { title: '对账单列表' },
+  },
+  {
+    path: '/settlement/:clinicId/:month',
+    name: 'monthly-settlement-detail',
+    component: MonthlySettlementDetail,
+    meta: { title: '月度结算详情' },
   },
 ]
 
