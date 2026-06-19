@@ -37,6 +37,8 @@ import StatusBadge from '../components/StatusBadge.vue'
 import PriorityBadge from '../components/PriorityBadge.vue'
 import ToothChart from '../components/ToothChart.vue'
 import StageTimeline from '../components/StageTimeline.vue'
+import AttachmentCard from '../components/AttachmentCard.vue'
+import CommunicationCard from '../components/CommunicationCard.vue'
 import { useOrders } from '../composables/useOrders'
 import type { StageHistoryEntry, ProcessingStage } from '../types'
 import {
@@ -736,6 +738,10 @@ function goToNewOrder() {
             </div>
           </div>
         </div>
+
+        <AttachmentCard :attachments="order.attachments" />
+
+        <CommunicationCard :communications="order.communications" />
       </div>
 
       <div class="space-y-6">

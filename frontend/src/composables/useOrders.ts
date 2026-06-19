@@ -8,11 +8,33 @@ import type {
   Clinic,
   Patient,
   StageHistoryEntry,
+  Attachment,
+  Communication,
+  AttachmentCategory,
+  CommunicationType,
 } from '../types'
 import { ProcessingStages } from '../types'
 import { MockOrders, MockClinics } from '../mock/orders'
 
 const STORAGE_KEY = 'denture-lab-orders'
+
+function migrateOrder(order: Order): Order {
+  if (!order.stageHistory) {
+    order.stageHistory = []
+  }
+  if (!order.returnRecords) {
+    order.returnRecords = []
+  }
+
+  const mockMatch = MockOrders.find((m) => m.id === order.id)
+  if (!order.attachments || order.attachments.length === 0) {
+    order.attachments = mockMatch?.attachments || []
+  }
+  if (!order.communications || order.communications.length === 0) {
+    order.communications = mockMatch?.communications || []
+  }
+  return order
+}
 
 function loadOrdersFromStorage(): Order[] {
   try {
@@ -20,7 +42,7 @@ function loadOrdersFromStorage(): Order[] {
     if (raw) {
       const parsed = JSON.parse(raw)
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed
+        return parsed.map((o) => migrateOrder(o as Order))
       }
     }
   } catch (e) {
@@ -112,6 +134,45 @@ function generateAnonymousCode(): string {
 function generatePatientId(): string {
   const num = orders.value.length + 1
   return `P${pad(num, 4)}`
+}
+
+function generateAttachmentId(orderId: string): string {
+  const order = orders.value.find((o) => o.id === orderId)
+  const seq = pad((order?.attachments.length || 0) + 1, 3)
+  return `A-${orderId}-${seq}`
+}
+
+function generateCommunicationId(orderId: string): string {
+  const order = orders.value.find((o) => o.id === orderId)
+  const seq = pad((order?.communications.length || 0) + 1, 3)
+  return `C-${orderId}-${seq}`
+}
+
+function addSystemCommunication(
+  orderId: string,
+  content: string,
+  relatedStage?: ProcessingStage
+): Communication | undefined {
+  const idx = orders.value.findIndex((o) => o.id === orderId)
+  if (idx === -1) return undefined
+
+  const order = orders.value[idx]
+  const now = formatDate(new Date())
+
+  const comm: Communication = {
+    id: generateCommunicationId(orderId),
+    orderId,
+    type: 'system-notice',
+    operator: '系统',
+    operatedAt: now,
+    content,
+    relatedStage: relatedStage || order.currentStage,
+    isSystemGenerated: true,
+  }
+
+  order.communications.unshift(comm)
+  orders.value[idx] = { ...order }
+  return comm
 }
 
 export function useOrders() {
@@ -284,6 +345,12 @@ export function useOrders() {
 
     order.status = 'returned'
 
+    addSystemCommunication(
+      orderId,
+      `订单已从${ProcessingStages[currentIdx].label}阶段退回至${ProcessingStages[currentIdx - 1].label}阶段，原因：${params.reason}`,
+      ProcessingStages[currentIdx].stage
+    )
+
     orders.value[idx] = { ...order }
     return orders.value[idx]
   }
@@ -307,6 +374,12 @@ export function useOrders() {
     }
 
     order.status = 'on-hold'
+
+    addSystemCommunication(
+      orderId,
+      `订单已暂停处理${params.notes ? `，备注：${params.notes}` : ''}`,
+      order.currentStage
+    )
 
     orders.value[idx] = { ...order }
     return orders.value[idx]
@@ -444,7 +517,20 @@ export function useOrders() {
       returnRecords: [],
       specialInstructions: params.specialInstructions,
       totalAmount: params.totalAmount,
+      attachments: [],
+      communications: [],
     }
+
+    newOrder.communications.push({
+      id: generateCommunicationId(newOrder.id),
+      orderId: newOrder.id,
+      type: 'system-notice',
+      operator: '系统',
+      operatedAt: now,
+      content: `订单已创建，当前阶段：订单接收`,
+      relatedStage: 'received',
+      isSystemGenerated: true,
+    })
 
     orders.value.unshift(newOrder)
     return newOrder
@@ -468,6 +554,19 @@ export function useOrders() {
     if (idx === -1) return undefined
 
     const existing = orders.value[idx]
+
+    if (params.deliveryDate && params.deliveryDate !== existing.deliveryDate) {
+      const oldDate = new Date(existing.deliveryDate)
+      const newDate = new Date(params.deliveryDate)
+      if (newDate.getTime() > oldDate.getTime()) {
+        const diffDays = Math.ceil((newDate.getTime() - oldDate.getTime()) / 86400000)
+        addSystemCommunication(
+          id,
+          `交付日期已延期，原交付日期：${existing.deliveryDate}，新交付日期：${params.deliveryDate}，延期 ${diffDays} 天`,
+          existing.currentStage
+        )
+      }
+    }
 
     if (params.clinicId) {
       existing.clinicId = params.clinicId
@@ -516,6 +615,75 @@ export function useOrders() {
     return orders.value
   }
 
+  interface AddAttachmentParams {
+    category: AttachmentCategory
+    fileName: string
+    fileSize?: number
+    fileType?: string
+    uploadedBy: string
+    description?: string
+  }
+
+  function addAttachment(
+    orderId: string,
+    params: AddAttachmentParams
+  ): Attachment | undefined {
+    const idx = orders.value.findIndex((o) => o.id === orderId)
+    if (idx === -1) return undefined
+
+    const order = orders.value[idx]
+    const now = formatDate(new Date())
+
+    const attachment: Attachment = {
+      id: generateAttachmentId(orderId),
+      orderId,
+      category: params.category,
+      fileName: params.fileName,
+      fileSize: params.fileSize,
+      fileType: params.fileType,
+      uploadedBy: params.uploadedBy,
+      uploadedAt: now,
+      description: params.description,
+    }
+
+    order.attachments.push(attachment)
+    orders.value[idx] = { ...order }
+    return attachment
+  }
+
+  interface AddCommunicationParams {
+    type: CommunicationType
+    operator: string
+    content: string
+    relatedStage?: ProcessingStage
+  }
+
+  function addCommunication(
+    orderId: string,
+    params: AddCommunicationParams
+  ): Communication | undefined {
+    const idx = orders.value.findIndex((o) => o.id === orderId)
+    if (idx === -1) return undefined
+
+    const order = orders.value[idx]
+    const now = formatDate(new Date())
+
+    const comm: Communication = {
+      id: generateCommunicationId(orderId),
+      orderId,
+      type: params.type,
+      operator: params.operator,
+      operatedAt: now,
+      content: params.content,
+      relatedStage: params.relatedStage || order.currentStage,
+      isSystemGenerated: false,
+    }
+
+    order.communications.unshift(comm)
+    orders.value[idx] = { ...order }
+    return comm
+  }
+
   return {
     orders: allOrders,
     getOrderById,
@@ -535,5 +703,7 @@ export function useOrders() {
     resumeOrder,
     markAsShipped,
     markAsDelivered,
+    addAttachment,
+    addCommunication,
   }
 }

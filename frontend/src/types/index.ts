@@ -164,6 +164,80 @@ export interface Patient {
   age?: number
 }
 
+export type AttachmentCategory =
+  | 'intraoral-scan'
+  | 'prescription-photo'
+  | 'facial-photo'
+  | 'design-draft'
+  | 'logistics-receipt'
+
+export const AttachmentCategoryLabels: Record<AttachmentCategory, string> = {
+  'intraoral-scan': '口扫文件',
+  'prescription-photo': '处方单照片',
+  'facial-photo': '面像照片',
+  'design-draft': '设计稿',
+  'logistics-receipt': '物流回单',
+}
+
+export const AttachmentCategoryColors: Record<AttachmentCategory, string> = {
+  'intraoral-scan': 'bg-cyan-50 text-cyan-700 border-cyan-200',
+  'prescription-photo': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'facial-photo': 'bg-pink-50 text-pink-700 border-pink-200',
+  'design-draft': 'bg-violet-50 text-violet-700 border-violet-200',
+  'logistics-receipt': 'bg-amber-50 text-amber-700 border-amber-200',
+}
+
+export interface Attachment {
+  id: string
+  orderId: string
+  category: AttachmentCategory
+  fileName: string
+  fileSize?: number
+  fileType?: string
+  uploadedBy: string
+  uploadedAt: string
+  url?: string
+  thumbnailUrl?: string
+  description?: string
+}
+
+export type CommunicationType =
+  | 'clinic-message'
+  | 'internal-note'
+  | 'phone-summary'
+  | 'rework-communication'
+  | 'delivery-confirmation'
+  | 'system-notice'
+
+export const CommunicationTypeLabels: Record<CommunicationType, string> = {
+  'clinic-message': '诊所留言',
+  'internal-note': '内部备注',
+  'phone-summary': '电话纪要',
+  'rework-communication': '返工沟通',
+  'delivery-confirmation': '交付确认',
+  'system-notice': '系统通知',
+}
+
+export const CommunicationTypeColors: Record<CommunicationType, string> = {
+  'clinic-message': 'bg-blue-50 text-blue-700 border-blue-200',
+  'internal-note': 'bg-slate-50 text-slate-700 border-slate-200',
+  'phone-summary': 'bg-indigo-50 text-indigo-700 border-indigo-200',
+  'rework-communication': 'bg-rose-50 text-rose-700 border-rose-200',
+  'delivery-confirmation': 'bg-teal-50 text-teal-700 border-teal-200',
+  'system-notice': 'bg-amber-50 text-amber-700 border-amber-200',
+}
+
+export interface Communication {
+  id: string
+  orderId: string
+  type: CommunicationType
+  operator: string
+  operatedAt: string
+  content: string
+  relatedStage?: ProcessingStage
+  isSystemGenerated?: boolean
+}
+
 export interface Order {
   id: string
   orderNumber: string
@@ -182,6 +256,8 @@ export interface Order {
   returnRecords: ReturnRecord[]
   specialInstructions?: string
   totalAmount?: number
+  attachments: Attachment[]
+  communications: Communication[]
 }
 
 export interface DashboardStats {

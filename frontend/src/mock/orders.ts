@@ -1,4 +1,5 @@
-import type { Clinic, Order, ReturnRecord } from '../types'
+import type { Clinic, Order, ReturnRecord, Attachment, Communication } from '../types'
+import type { AttachmentCategory, CommunicationType, ProcessingStage } from '../types'
 
 export const MockClinics: Clinic[] = [
   {
@@ -506,6 +507,194 @@ export const MockOrders: Order[] = [
     totalAmount: 10500,
   },
 ]
+
+function generateMockAttachments(orderId: string, orderCreatedAt: string): Attachment[] {
+  const baseDate = new Date(orderCreatedAt)
+  const hoursLater = (h: number) => new Date(baseDate.getTime() + h * 3600000)
+  const attachments: Attachment[] = [
+    {
+      id: `A-${orderId}-1`,
+      orderId,
+      category: 'intraoral-scan',
+      fileName: `${orderId}_口扫数据.stl`,
+      fileSize: 15 * 1024 * 1024,
+      fileType: 'model/stl',
+      uploadedBy: '调度员-陈',
+      uploadedAt: formatDate(hoursLater(0.5)),
+      description: '患者口内三维扫描数据',
+    },
+    {
+      id: `A-${orderId}-2`,
+      orderId,
+      category: 'prescription-photo',
+      fileName: `${orderId}_处方单.jpg`,
+      fileSize: 2.3 * 1024 * 1024,
+      fileType: 'image/jpeg',
+      uploadedBy: '调度员-陈',
+      uploadedAt: formatDate(hoursLater(1)),
+      description: '医生签字处方单扫描件',
+    },
+  ]
+  if (Math.random() > 0.3) {
+    attachments.push({
+      id: `A-${orderId}-3`,
+      orderId,
+      category: 'facial-photo',
+      fileName: `${orderId}_正面像.jpg`,
+      fileSize: 3.1 * 1024 * 1024,
+      fileType: 'image/jpeg',
+      uploadedBy: '调度员-吴',
+      uploadedAt: formatDate(hoursLater(1.5)),
+      description: '患者面部正面照片',
+    })
+    attachments.push({
+      id: `A-${orderId}-4`,
+      orderId,
+      category: 'facial-photo',
+      fileName: `${orderId}_侧面像.jpg`,
+      fileSize: 2.8 * 1024 * 1024,
+      fileType: 'image/jpeg',
+      uploadedBy: '调度员-吴',
+      uploadedAt: formatDate(hoursLater(1.5)),
+      description: '患者面部侧面照片',
+    })
+  }
+  if (Math.random() > 0.5) {
+    attachments.push({
+      id: `A-${orderId}-5`,
+      orderId,
+      category: 'design-draft',
+      fileName: `${orderId}_设计方案.pdf`,
+      fileSize: 5.6 * 1024 * 1024,
+      fileType: 'application/pdf',
+      uploadedBy: '张技师',
+      uploadedAt: formatDate(hoursLater(24)),
+      description: '修复体设计方案及咬合分析',
+    })
+  }
+  if (Math.random() > 0.6) {
+    attachments.push({
+      id: `A-${orderId}-6`,
+      orderId,
+      category: 'logistics-receipt',
+      fileName: `${orderId}_物流回单.jpg`,
+      fileSize: 1.2 * 1024 * 1024,
+      fileType: 'image/jpeg',
+      uploadedBy: '调度员-陈',
+      uploadedAt: formatDate(hoursLater(72)),
+      description: '顺丰快递签收单',
+    })
+  }
+  return attachments
+}
+
+function generateMockCommunications(orderId: string, orderCreatedAt: string, currentStage: ProcessingStage, hasReturn: boolean): Communication[] {
+  const baseDate = new Date(orderCreatedAt)
+  const hoursLater = (h: number) => new Date(baseDate.getTime() + h * 3600000)
+  const comms: Communication[] = [
+    {
+      id: `C-${orderId}-1`,
+      orderId,
+      type: 'system-notice',
+      operator: '系统',
+      operatedAt: formatDate(hoursLater(0)),
+      content: `订单已创建，当前阶段：订单接收`,
+      relatedStage: 'received',
+      isSystemGenerated: true,
+    },
+    {
+      id: `C-${orderId}-2`,
+      orderId,
+      type: 'clinic-message',
+      operator: '李明华医生',
+      operatedAt: formatDate(hoursLater(0.3)),
+      content: '请优先处理该患者，本周需要戴牙。患者对美学要求较高，切端透明度需特别注意。',
+      relatedStage: 'received',
+    },
+    {
+      id: `C-${orderId}-3`,
+      orderId,
+      type: 'internal-note',
+      operator: '调度员-陈',
+      operatedAt: formatDate(hoursLater(1)),
+      content: '已核对处方单和口扫数据，信息完整，分配给王技师进行模型扫描。',
+      relatedStage: 'model-scanning',
+    },
+  ]
+  if (Math.random() > 0.4) {
+    comms.push({
+      id: `C-${orderId}-4`,
+      orderId,
+      type: 'phone-summary',
+      operator: '调度员-陈',
+      operatedAt: formatDate(hoursLater(3)),
+      content: '与诊所王医生电话确认：咬合关系按对颌牙排列，颜色比色以A2为基准，颈部略深。',
+      relatedStage: 'wax-up',
+    })
+  }
+  if (hasReturn) {
+    comms.push({
+      id: `C-${orderId}-5`,
+      orderId,
+      type: 'system-notice',
+      operator: '系统',
+      operatedAt: formatDate(hoursLater(48)),
+      content: `订单已从质检审核阶段退回至烤瓷堆瓷阶段，原因：边缘不密合，存在缝隙`,
+      relatedStage: 'quality-check',
+      isSystemGenerated: true,
+    })
+    comms.push({
+      id: `C-${orderId}-6`,
+      orderId,
+      type: 'rework-communication',
+      operator: '质检员-孙',
+      operatedAt: formatDate(hoursLater(48.5)),
+      content: '内冠边缘间隙超过50μm，需重新制作内冠，注意肩台制备精度。',
+      relatedStage: 'porcelain',
+    })
+    comms.push({
+      id: `C-${orderId}-7`,
+      orderId,
+      type: 'internal-note',
+      operator: '赵技师',
+      operatedAt: formatDate(hoursLater(50)),
+      content: '收到返工通知，将重新制作内冠，预计2天内完成返工。',
+      relatedStage: 'porcelain',
+    })
+  }
+  if (currentStage === 'delivered') {
+    comms.push({
+      id: `C-${orderId}-8`,
+      orderId,
+      type: 'system-notice',
+      operator: '系统',
+      operatedAt: formatDate(hoursLater(120)),
+      content: `订单已标记为已送达，诊所已签收`,
+      relatedStage: 'delivered',
+      isSystemGenerated: true,
+    })
+    comms.push({
+      id: `C-${orderId}-9`,
+      orderId,
+      type: 'delivery-confirmation',
+      operator: '张伟强医生',
+      operatedAt: formatDate(hoursLater(122)),
+      content: '修复体已收到，颜色和形态均满意，患者戴牙顺利，感谢。',
+      relatedStage: 'delivered',
+    })
+  }
+  return comms.sort((a, b) => new Date(b.operatedAt).getTime() - new Date(a.operatedAt).getTime())
+}
+
+MockOrders.forEach((order) => {
+  order.attachments = generateMockAttachments(order.id, order.createdAt)
+  order.communications = generateMockCommunications(
+    order.id,
+    order.createdAt,
+    order.currentStage,
+    order.returnRecords.length > 0
+  )
+})
 
 export function getOrderById(id: string): Order | undefined {
   return MockOrders.find((o) => o.id === id)
