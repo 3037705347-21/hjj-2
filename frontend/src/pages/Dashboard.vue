@@ -34,6 +34,16 @@ import {
   Flame,
   Wrench,
   Eye,
+  TrendingUp,
+  TrendingDown,
+  BarChart3,
+  PieChart,
+  Trophy,
+  Gauge,
+  Target,
+  Award,
+  Users,
+  Activity,
 } from 'lucide-vue-next'
 import StatCard from '../components/StatCard.vue'
 import OrderCard from '../components/OrderCard.vue'
@@ -237,6 +247,429 @@ const stats = computed(() => {
     returned,
   }
 })
+
+type TimeRangeView = 'today' | 'week' | 'month'
+const activeTimeView = ref<TimeRangeView>('week')
+
+function getDateRange(view: TimeRangeView): { start: Date; end: Date } {
+  const now = new Date()
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
+  let start: Date
+
+  if (view === 'today') {
+    start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+  } else if (view === 'week') {
+    const day = now.getDay()
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1)
+    start = new Date(now.getFullYear(), now.getMonth(), diff, 0, 0, 0, 0)
+  } else {
+    start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0)
+  }
+
+  return { start, end }
+}
+
+function isInRange(dateStr: string, range: { start: Date; end: Date }): boolean {
+  const d = new Date(dateStr)
+  return d >= range.start && d <= range.end
+}
+
+const timeRange = computed(() => getDateRange(activeTimeView.value))
+
+const rangeOrders = computed(() => {
+  return roleFilteredOrders.value.filter((o) =>
+    isInRange(o.createdAt, timeRange.value)
+  )
+})
+
+interface DailyTrendPoint {
+  date: string
+  label: string
+  count: number
+  completed: number
+}
+
+const orderTrendData = computed<DailyTrendPoint[]>(() => {
+  const result: DailyTrendPoint[] = []
+  const days = 7
+  const now = new Date()
+
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i)
+    const dateStr = d.toISOString().split('T')[0]
+    const label = `${d.getMonth() + 1}/${d.getDate()}`
+
+    const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0)
+    const dayEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999)
+
+    const count = roleFilteredOrders.value.filter((o) => {
+      const created = new Date(o.createdAt)
+      return created >= dayStart && created <= dayEnd
+    }).length
+
+    const completed = roleFilteredOrders.value.filter((o) => {
+      const delivered = o.stageHistory.find((s) => s.stage === 'delivered')
+      if (!delivered?.completedAt) return false
+      const cd = new Date(delivered.completedAt)
+      return cd >= dayStart && cd <= dayEnd
+    }).length
+
+    result.push({ date: dateStr, label, count, completed })
+  }
+
+  return result
+})
+
+const maxTrendValue = computed(() => {
+  const max = orderTrendData.value.reduce(
+    (acc, d) => Math.max(acc, d.count, d.completed),
+    0
+  )
+  return max === 0 ? 1 : max
+})
+
+interface StageCountItem {
+  stage: string
+  label: string
+  count: number
+  colorClass: string
+}
+
+const stageInProgressData = computed<StageCountItem[]>(() => {
+  const stageColors: Record<string, string> = {
+    'received': 'bg-slate-500',
+    'model-scanning': 'bg-cyan-500',
+    'wax-up': 'bg-violet-500',
+    'casting': 'bg-amber-500',
+    'porcelain': 'bg-pink-500',
+    'glazing': 'bg-teal-500',
+    'finishing': 'bg-indigo-500',
+    'quality-check': 'bg-rose-500',
+    'shipped': 'bg-blue-500',
+    'delivered': 'bg-emerald-500',
+  }
+
+  const counts: Record<string, number> = {}
+  ProcessingStages.forEach((s) => (counts[s.stage] = 0))
+
+  rangeOrders.value
+    .filter((o) => o.status !== 'completed')
+    .forEach((o) => {
+      if (counts[o.currentStage] !== undefined) {
+        counts[o.currentStage]++
+      }
+    })
+
+  return ProcessingStages.map((s) => ({
+    stage: s.stage,
+    label: s.label,
+    count: counts[s.stage] || 0,
+    colorClass: stageColors[s.stage] || 'bg-slate-500',
+  })).filter((s) => s.count > 0 || ['received', 'model-scanning', 'wax-up', 'casting', 'porcelain', 'quality-check'].includes(s.stage))
+})
+
+const maxStageCount = computed(() => {
+  const max = stageInProgressData.value.reduce((acc, s) => Math.max(acc, s.count), 0)
+  return max === 0 ? 1 : max
+})
+
+interface ReworkCauseItem {
+  cause: string
+  label: string
+  count: number
+  percentage: number
+}
+
+const reworkCauseData = computed<ReworkCauseItem[]>(() => {
+  const reworkOrders = rangeOrders.value.filter((o) => o.returnRecords.length > 0)
+  const totalReworks = reworkOrders.reduce(
+    (acc, o) => acc + o.returnRecords.length,
+    0
+  )
+
+  const causeCounts: Record<string, number> = {}
+  Object.keys(ReworkRootCauseLabels).forEach((k) => (causeCounts[k] = 0))
+
+  reworkOrders.forEach((o) => {
+    o.returnRecords.forEach((r) => {
+      if (causeCounts[r.rootCause] !== undefined) {
+        causeCounts[r.rootCause]++
+      }
+    })
+  })
+
+  return Object.entries(causeCounts)
+    .filter(([, count]) => count > 0)
+    .map(([cause, count]) => ({
+      cause,
+      label: ReworkRootCauseLabels[cause as keyof typeof ReworkRootCauseLabels],
+      count,
+      percentage: totalReworks === 0 ? 0 : Math.round((count / totalReworks) * 100),
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 6)
+})
+
+const reworkCausePalette = [
+  'bg-rose-500',
+  'bg-amber-500',
+  'bg-cyan-500',
+  'bg-violet-500',
+  'bg-teal-500',
+  'bg-pink-500',
+]
+
+interface ClinicRankingItem {
+  clinicId: string
+  clinicName: string
+  count: number
+  amount: number
+  percentage: number
+}
+
+const clinicRankingData = computed<ClinicRankingItem[]>(() => {
+  const map = new Map<string, ClinicRankingItem>()
+  const total = rangeOrders.value.length
+
+  rangeOrders.value.forEach((o) => {
+    const existing = map.get(o.clinicId)
+    if (existing) {
+      existing.count++
+      existing.amount += o.totalAmount || 0
+    } else {
+      map.set(o.clinicId, {
+        clinicId: o.clinicId,
+        clinicName: o.clinic.name,
+        count: 1,
+        amount: o.totalAmount || 0,
+        percentage: 0,
+      })
+    }
+  })
+
+  const result = Array.from(map.values())
+    .map((item) => ({
+      ...item,
+      percentage: total === 0 ? 0 : Math.round((item.count / total) * 100),
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8)
+
+  return result
+})
+
+const maxClinicCount = computed(() => {
+  const max = clinicRankingData.value.reduce((acc, c) => Math.max(acc, c.count), 0)
+  return max === 0 ? 1 : max
+})
+
+interface TechnicianEfficiencyItem {
+  name: string
+  completedCount: number
+  avgHours: number
+  reworkRate: number
+}
+
+const technicianRankingData = computed<TechnicianEfficiencyItem[]>(() => {
+  const techStats = new Map<
+    string,
+    { completed: number; totalHours: number; reworkCount: number; totalCount: number }
+  >()
+
+  rangeOrders.value.forEach((o) => {
+    const seenTechs = new Set<string>()
+    o.stageHistory.forEach((s) => {
+      if (s.technician && s.completedAt) {
+        const start = new Date(s.startedAt).getTime()
+        const end = new Date(s.completedAt).getTime()
+        const hours = Math.max(1, Math.round((end - start) / 3600000))
+
+        const existing = techStats.get(s.technician)
+        if (existing) {
+          existing.completed++
+          existing.totalHours += hours
+          if (!seenTechs.has(s.technician)) {
+            existing.totalCount++
+            seenTechs.add(s.technician)
+          }
+        } else {
+          techStats.set(s.technician, {
+            completed: 1,
+            totalHours: hours,
+            reworkCount: 0,
+            totalCount: 1,
+          })
+          seenTechs.add(s.technician)
+        }
+      }
+    })
+
+    if (o.returnRecords.length > 0) {
+      o.returnRecords.forEach((r) => {
+        if (r.responsibleTechnician) {
+          const tech = techStats.get(r.responsibleTechnician)
+          if (tech) {
+            tech.reworkCount++
+          } else {
+            techStats.set(r.responsibleTechnician, {
+              completed: 0,
+              totalHours: 0,
+              reworkCount: 1,
+              totalCount: 1,
+            })
+          }
+        }
+      })
+    }
+  })
+
+  return Array.from(techStats.entries())
+    .map(([name, stats]) => ({
+      name,
+      completedCount: stats.completed,
+      avgHours: stats.completed === 0 ? 0 : Math.round((stats.totalHours / stats.completed) * 10) / 10,
+      reworkRate: stats.totalCount === 0 ? 0 : Math.round((stats.reworkCount / stats.totalCount) * 100),
+    }))
+    .filter((t) => t.completedCount > 0)
+    .sort((a, b) => b.completedCount - a.completedCount)
+    .slice(0, 6)
+})
+
+const maxTechCompleted = computed(() => {
+  const max = technicianRankingData.value.reduce((acc, t) => Math.max(acc, t.completedCount), 0)
+  return max === 0 ? 1 : max
+})
+
+interface DeliveryRateData {
+  onTime: number
+  late: number
+  pending: number
+  total: number
+  rate: number
+}
+
+const deliveryRateData = computed<DeliveryRateData>(() => {
+  const source = rangeOrders.value
+  const total = source.length
+
+  let onTime = 0
+  let late = 0
+  let pending = 0
+
+  source.forEach((o) => {
+    const delivered = o.stageHistory.find((s) => s.stage === 'delivered')
+    if (delivered?.completedAt) {
+      const completed = new Date(delivered.completedAt)
+      const delivery = new Date(o.deliveryDate)
+      delivery.setHours(23, 59, 59, 999)
+      if (completed <= delivery) {
+        onTime++
+      } else {
+        late++
+      }
+    } else if (o.status === 'completed') {
+      const delivery = new Date(o.deliveryDate)
+      delivery.setHours(23, 59, 59, 999)
+      if (new Date() <= delivery) {
+        onTime++
+      } else {
+        late++
+      }
+    } else {
+      pending++
+    }
+  })
+
+  const evaluated = onTime + late
+  const rate = evaluated === 0 ? (total === 0 ? 0 : 100) : Math.round((onTime / evaluated) * 100)
+
+  return { onTime, late, pending, total, rate }
+})
+
+const totalReworkCount = computed(() => {
+  return rangeOrders.value.reduce(
+    (acc, o) => acc + o.returnRecords.length,
+    0
+  )
+})
+
+const averageTurnaroundHours = computed(() => {
+  const completed = rangeOrders.value.filter((o) => {
+    const delivered = o.stageHistory.find((s) => s.stage === 'delivered')
+    return delivered?.completedAt
+  })
+
+  if (completed.length === 0) return 0
+
+  const totalHours = completed.reduce((acc, o) => {
+    const start = new Date(o.createdAt).getTime()
+    const delivered = o.stageHistory.find((s) => s.stage === 'delivered')!
+    const end = new Date(delivered.completedAt!).getTime()
+    return acc + (end - start) / 3600000
+  }, 0)
+
+  return Math.round((totalHours / completed.length) * 10) / 10
+})
+
+function setTimeView(view: TimeRangeView) {
+  activeTimeView.value = view
+}
+
+function scrollToFilters() {
+  const el = document.querySelector('[data-filter-section]')
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+}
+
+function applyStatFilter(type: string, payload?: any) {
+  clearFilters()
+
+  switch (type) {
+    case 'in-progress':
+      statusFilter.value = 'in-progress'
+      break
+    case 'urgent':
+      priorityFilter.value = 'urgent'
+      break
+    case 'due-today':
+      activeQuickView.value = 'today'
+      break
+    case 'overdue':
+      activeQuickView.value = 'overdue'
+      break
+    case 'returned':
+      activeQuickView.value = 'returning'
+      break
+    case 'completed-today':
+      statusFilter.value = 'completed'
+      deliveryDateStart.value = today.toISOString().split('T')[0]
+      deliveryDateEnd.value = today.toISOString().split('T')[0]
+      break
+    case 'stage':
+      stageFilter.value = payload as ProcessingStage
+      break
+    case 'clinic':
+      clinicFilter.value = payload as string
+      break
+    case 'rework-cause':
+      reworkRootCauseFilter.value = payload as ReworkRootCause
+      break
+    case 'technician':
+      technicianFilter.value = payload as string
+      break
+    case 'late-delivery':
+      deliveryDateEnd.value = today.toISOString().split('T')[0]
+      statusFilter.value = 'completed'
+      break
+    case 'on-time-delivery':
+      statusFilter.value = 'completed'
+      break
+  }
+
+  showFilters.value = true
+  scrollToFilters()
+}
 
 const filteredOrders = computed(() => {
   return roleFilteredOrders.value.filter((order) => {
@@ -1004,98 +1437,468 @@ function formatDate(dateStr: string) {
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
       <template v-if="currentRole === 'clinic'">
-        <StatCard
-          title="进行中订单"
-          :value="stats.inProgress"
-          :icon="PackageOpen"
-          tone="primary"
-          description="加工中"
-        />
-        <StatCard
-          title="今日交付"
-          :value="stats.dueToday"
-          :icon="CalendarCheck"
-          tone="primary"
-          :description="'逾期: ' + stats.overdue + ' 单'"
-        />
-        <StatCard
-          title="已完成"
-          :value="stats.completedToday"
-          :icon="CheckCircle2"
-          tone="success"
-          description="今日交付"
-        />
-        <StatCard
-          title="问题订单"
-          :value="stats.returned"
-          :icon="AlertTriangle"
-          tone="danger"
-          description="返工处理中"
-        />
+        <div class="cursor-pointer hover:shadow-lg transition-all" @click="applyStatFilter('in-progress')">
+          <StatCard
+            title="进行中订单"
+            :value="stats.inProgress"
+            :icon="PackageOpen"
+            tone="primary"
+            description="加工中"
+          />
+        </div>
+        <div class="cursor-pointer hover:shadow-lg transition-all" @click="applyStatFilter('due-today')">
+          <StatCard
+            title="今日交付"
+            :value="stats.dueToday"
+            :icon="CalendarCheck"
+            tone="primary"
+            :description="'逾期: ' + stats.overdue + ' 单'"
+          />
+        </div>
+        <div class="cursor-pointer hover:shadow-lg transition-all" @click="applyStatFilter('completed-today')">
+          <StatCard
+            title="已完成"
+            :value="stats.completedToday"
+            :icon="CheckCircle2"
+            tone="success"
+            description="今日交付"
+          />
+        </div>
+        <div class="cursor-pointer hover:shadow-lg transition-all" @click="applyStatFilter('returned')">
+          <StatCard
+            title="问题订单"
+            :value="stats.returned"
+            :icon="AlertTriangle"
+            tone="danger"
+            description="返工处理中"
+          />
+        </div>
       </template>
 
       <template v-else-if="currentRole === 'technician'">
-        <StatCard
-          title="我的任务"
-          :value="stats.total"
-          :icon="Wrench"
-          tone="primary"
-          description="分配给我"
-        />
-        <StatCard
-          title="待处理"
-          :value="stats.inProgress"
-          :icon="Clock"
-          tone="warning"
-          description="待开始/进行中"
-        />
-        <StatCard
-          title="今日需完成"
-          :value="stats.dueToday"
-          :icon="CalendarCheck"
-          tone="primary"
-          :description="'逾期: ' + stats.overdue + ' 单'"
-        />
-        <StatCard
-          title="返工任务"
-          :value="stats.returned"
-          :icon="RefreshCw"
-          tone="danger"
-          description="需特别注意"
-        />
+        <div class="cursor-pointer hover:shadow-lg transition-all" @click="setQuickView('mytasks')">
+          <StatCard
+            title="我的任务"
+            :value="stats.total"
+            :icon="Wrench"
+            tone="primary"
+            description="分配给我"
+          />
+        </div>
+        <div class="cursor-pointer hover:shadow-lg transition-all" @click="applyStatFilter('in-progress')">
+          <StatCard
+            title="待处理"
+            :value="stats.inProgress"
+            :icon="Clock"
+            tone="warning"
+            description="待开始/进行中"
+          />
+        </div>
+        <div class="cursor-pointer hover:shadow-lg transition-all" @click="applyStatFilter('due-today')">
+          <StatCard
+            title="今日需完成"
+            :value="stats.dueToday"
+            :icon="CalendarCheck"
+            tone="primary"
+            :description="'逾期: ' + stats.overdue + ' 单'"
+          />
+        </div>
+        <div class="cursor-pointer hover:shadow-lg transition-all" @click="applyStatFilter('returned')">
+          <StatCard
+            title="返工任务"
+            :value="stats.returned"
+            :icon="RefreshCw"
+            tone="danger"
+            description="需特别注意"
+          />
+        </div>
       </template>
 
       <template v-else>
-        <StatCard
-          title="在制订单"
-          :value="stats.inProgress"
-          :icon="PackageOpen"
-          tone="primary"
-          description="总数 "
-          :trend="'+' + stats.total"
-        />
-        <StatCard
-          title="加急订单"
-          :value="stats.urgent"
-          :icon="AlertTriangle"
-          tone="warning"
-          description="需优先处理"
-        />
-        <StatCard
-          title="今日交付"
-          :value="stats.dueToday"
-          :icon="CalendarCheck"
-          tone="primary"
-          :description="'逾期: ' + stats.overdue + ' 单'"
-        />
-        <StatCard
-          title="返工订单"
-          :value="stats.returned"
-          :icon="RefreshCw"
-          tone="danger"
-          description="质量问题追踪"
-        />
+        <div class="cursor-pointer hover:shadow-lg transition-all" @click="applyStatFilter('in-progress')">
+          <StatCard
+            title="在制订单"
+            :value="stats.inProgress"
+            :icon="PackageOpen"
+            tone="primary"
+            description="总数 "
+            :trend="'+' + stats.total"
+          />
+        </div>
+        <div class="cursor-pointer hover:shadow-lg transition-all" @click="applyStatFilter('urgent')">
+          <StatCard
+            title="加急订单"
+            :value="stats.urgent"
+            :icon="AlertTriangle"
+            tone="warning"
+            description="需优先处理"
+          />
+        </div>
+        <div class="cursor-pointer hover:shadow-lg transition-all" @click="applyStatFilter('due-today')">
+          <StatCard
+            title="今日交付"
+            :value="stats.dueToday"
+            :icon="CalendarCheck"
+            tone="primary"
+            :description="'逾期: ' + stats.overdue + ' 单'"
+          />
+        </div>
+        <div class="cursor-pointer hover:shadow-lg transition-all" @click="applyStatFilter('returned')">
+          <StatCard
+            title="返工订单"
+            :value="stats.returned"
+            :icon="RefreshCw"
+            tone="danger"
+            description="质量问题追踪"
+          />
+        </div>
       </template>
+    </div>
+
+    <div class="mb-6 bg-white rounded-xl border border-slate-200 p-4">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
+        <div class="flex items-center gap-3">
+          <div class="p-2 bg-indigo-100 rounded-lg">
+            <BarChart3 class="w-5 h-5 text-indigo-600" />
+          </div>
+          <div>
+            <h3 class="text-sm font-semibold text-slate-800">经营统计与趋势分析</h3>
+            <p class="text-xs text-slate-500">
+              共 {{ rangeOrders.length }} 单 | 返工 {{ totalReworkCount }} 次 | 平均交期 {{ averageTurnaroundHours }}h
+            </p>
+          </div>
+        </div>
+        <div class="inline-flex items-center p-1 bg-slate-100 rounded-lg">
+          <button
+            class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-md transition-colors"
+            :class="activeTimeView === 'today' ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200' : 'text-slate-600 hover:text-slate-800'"
+            @click="setTimeView('today')"
+          >
+            今日
+          </button>
+          <button
+            class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-md transition-colors"
+            :class="activeTimeView === 'week' ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200' : 'text-slate-600 hover:text-slate-800'"
+            @click="setTimeView('week')"
+          >
+            本周
+          </button>
+          <button
+            class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-medium rounded-md transition-colors"
+            :class="activeTimeView === 'month' ? 'bg-white text-slate-800 shadow-sm ring-1 ring-slate-200' : 'text-slate-600 hover:text-slate-800'"
+            @click="setTimeView('month')"
+          >
+            本月
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div class="bg-slate-50/60 rounded-xl border border-slate-200/70 p-4 hover:border-blue-200 transition-colors">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <div class="p-1.5 bg-blue-100 rounded-md">
+                <Activity class="w-4 h-4 text-blue-600" />
+              </div>
+              <h4 class="text-sm font-semibold text-slate-800">近 7 天订单趋势</h4>
+            </div>
+            <div class="flex items-center gap-3 text-xs">
+              <span class="flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-sm bg-blue-500"></span>
+                新增
+              </span>
+              <span class="flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-sm bg-emerald-500"></span>
+                完成
+              </span>
+            </div>
+          </div>
+          <div class="h-48 flex items-end justify-between gap-1.5 px-1">
+            <div
+              v-for="(d, idx) in orderTrendData"
+              :key="idx"
+              class="flex-1 flex flex-col items-center justify-end gap-1 min-w-0"
+            >
+              <div class="w-full flex items-end justify-center gap-0.5 h-36">
+                <div
+                  class="w-1/2 bg-blue-500 rounded-t-sm hover:bg-blue-600 transition-colors cursor-pointer relative group"
+                  :style="{ height: `${(d.count / maxTrendValue) * 100}%`, minHeight: d.count > 0 ? '4px' : '0' }"
+                  @click="() => { createdAtStart = d.date; createdAtEnd = d.date; showFilters = true; scrollToFilters(); }"
+                >
+                  <div class="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                    新增: {{ d.count }}
+                  </div>
+                </div>
+                <div
+                  class="w-1/2 bg-emerald-500 rounded-t-sm hover:bg-emerald-600 transition-colors cursor-pointer relative group"
+                  :style="{ height: `${(d.completed / maxTrendValue) * 100}%`, minHeight: d.completed > 0 ? '4px' : '0' }"
+                  @click="applyStatFilter('completed-today')"
+                >
+                  <div class="absolute -top-7 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[10px] px-1.5 py-0.5 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                    完成: {{ d.completed }}
+                  </div>
+                </div>
+              </div>
+              <span class="text-[10px] text-slate-500 font-medium">{{ d.label }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-slate-50/60 rounded-xl border border-slate-200/70 p-4 hover:border-cyan-200 transition-colors">
+          <div class="flex items-center gap-2 mb-4">
+            <div class="p-1.5 bg-cyan-100 rounded-md">
+              <Gauge class="w-4 h-4 text-cyan-600" />
+            </div>
+            <h4 class="text-sm font-semibold text-slate-800">各阶段在制数量</h4>
+          </div>
+          <div class="space-y-2.5 max-h-48 overflow-y-auto pr-1">
+            <div
+              v-for="(s, idx) in stageInProgressData"
+              :key="idx"
+              class="group cursor-pointer"
+              @click="applyStatFilter('stage', s.stage)"
+            >
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-medium text-slate-700 group-hover:text-slate-900">{{ s.label }}</span>
+                <span class="text-xs font-bold text-slate-800">{{ s.count }}</span>
+              </div>
+              <div class="h-2 bg-slate-200/70 rounded-full overflow-hidden">
+                <div
+                  class="h-full rounded-full transition-all duration-500 group-hover:brightness-110"
+                  :class="s.colorClass"
+                  :style="{ width: `${(s.count / maxStageCount) * 100}%` }"
+                ></div>
+              </div>
+            </div>
+            <div v-if="stageInProgressData.length === 0" class="py-6 text-center text-xs text-slate-400">
+              暂无在制订单
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-slate-50/60 rounded-xl border border-slate-200/70 p-4 hover:border-rose-200 transition-colors">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <div class="p-1.5 bg-rose-100 rounded-md">
+                <PieChart class="w-4 h-4 text-rose-600" />
+              </div>
+              <h4 class="text-sm font-semibold text-slate-800">返工原因分布</h4>
+            </div>
+            <span class="text-xs text-slate-500">共 {{ totalReworkCount }} 次返工</span>
+          </div>
+          <div class="space-y-2.5 max-h-48 overflow-y-auto pr-1">
+            <div
+              v-for="(r, idx) in reworkCauseData"
+              :key="idx"
+              class="group cursor-pointer"
+              @click="applyStatFilter('rework-cause', r.cause)"
+            >
+              <div class="flex items-center justify-between mb-1">
+                <div class="flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-sm" :class="reworkCausePalette[idx % reworkCausePalette.length]"></span>
+                  <span class="text-xs font-medium text-slate-700 group-hover:text-slate-900">{{ r.label }}</span>
+                </div>
+                <span class="text-xs font-bold text-slate-800">{{ r.count }} <span class="font-normal text-slate-500">({{ r.percentage }}%)</span></span>
+              </div>
+              <div class="h-2 bg-slate-200/70 rounded-full overflow-hidden">
+                <div
+                  class="h-full rounded-full transition-all duration-500 group-hover:brightness-110"
+                  :class="reworkCausePalette[idx % reworkCausePalette.length]"
+                  :style="{ width: `${r.percentage}%` }"
+                ></div>
+              </div>
+            </div>
+            <div v-if="reworkCauseData.length === 0" class="py-6 text-center text-xs text-slate-400">
+              暂无返工记录
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-slate-50/60 rounded-xl border border-slate-200/70 p-4 hover:border-indigo-200 transition-colors">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <div class="p-1.5 bg-indigo-100 rounded-md">
+                <Trophy class="w-4 h-4 text-indigo-600" />
+              </div>
+              <h4 class="text-sm font-semibold text-slate-800">诊所订单贡献排行</h4>
+            </div>
+            <span class="text-xs text-slate-500">Top {{ clinicRankingData.length }}</span>
+          </div>
+          <div class="space-y-2.5 max-h-48 overflow-y-auto pr-1">
+            <div
+              v-for="(c, idx) in clinicRankingData"
+              :key="idx"
+              class="group cursor-pointer"
+              @click="applyStatFilter('clinic', c.clinicId)"
+            >
+              <div class="flex items-center justify-between mb-1">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span
+                    class="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
+                    :class="idx === 0 ? 'bg-amber-400 text-amber-900' : idx === 1 ? 'bg-slate-300 text-slate-700' : idx === 2 ? 'bg-orange-300 text-orange-800' : 'bg-slate-100 text-slate-500'"
+                  >
+                    {{ idx + 1 }}
+                  </span>
+                  <span class="text-xs font-medium text-slate-700 group-hover:text-slate-900 truncate">{{ c.clinicName }}</span>
+                </div>
+                <span class="text-xs font-bold text-slate-800 flex-shrink-0 ml-2">{{ c.count }} <span class="font-normal text-slate-500">({{ c.percentage }}%)</span></span>
+              </div>
+              <div class="h-2 bg-slate-200/70 rounded-full overflow-hidden">
+                <div
+                  class="h-full bg-indigo-500 rounded-full transition-all duration-500 group-hover:bg-indigo-600"
+                  :style="{ width: `${(c.count / maxClinicCount) * 100}%` }"
+                ></div>
+              </div>
+              <div v-if="c.amount > 0" class="mt-0.5 text-[10px] text-slate-400">
+                金额: ¥{{ c.amount.toFixed(0) }}
+              </div>
+            </div>
+            <div v-if="clinicRankingData.length === 0" class="py-6 text-center text-xs text-slate-400">
+              暂无订单数据
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-slate-50/60 rounded-xl border border-slate-200/70 p-4 hover:border-teal-200 transition-colors">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <div class="p-1.5 bg-teal-100 rounded-md">
+                <Award class="w-4 h-4 text-teal-600" />
+              </div>
+              <h4 class="text-sm font-semibold text-slate-800">技师处理效率排行</h4>
+            </div>
+            <span class="text-xs text-slate-500">按完成工序数</span>
+          </div>
+          <div class="space-y-2.5 max-h-48 overflow-y-auto pr-1">
+            <div
+              v-for="(t, idx) in technicianRankingData"
+              :key="idx"
+              class="group cursor-pointer"
+              @click="applyStatFilter('technician', t.name)"
+            >
+              <div class="flex items-center justify-between mb-1">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span
+                    class="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
+                    :class="idx === 0 ? 'bg-amber-400 text-amber-900' : idx === 1 ? 'bg-slate-300 text-slate-700' : idx === 2 ? 'bg-orange-300 text-orange-800' : 'bg-slate-100 text-slate-500'"
+                  >
+                    {{ idx + 1 }}
+                  </span>
+                  <span class="text-xs font-medium text-slate-700 group-hover:text-slate-900 truncate">{{ t.name }}</span>
+                </div>
+                <span class="text-xs font-bold text-slate-800 flex-shrink-0 ml-2">{{ t.completedCount }} 工序</span>
+              </div>
+              <div class="h-2 bg-slate-200/70 rounded-full overflow-hidden mb-1">
+                <div
+                  class="h-full bg-teal-500 rounded-full transition-all duration-500 group-hover:bg-teal-600"
+                  :style="{ width: `${(t.completedCount / maxTechCompleted) * 100}%` }"
+                ></div>
+              </div>
+              <div class="flex items-center justify-between text-[10px]">
+                <span class="text-slate-500">
+                  均耗时: <span class="text-slate-700 font-medium">{{ t.avgHours }}h</span>
+                </span>
+                <span :class="t.reworkRate > 15 ? 'text-rose-600' : t.reworkRate > 8 ? 'text-amber-600' : 'text-emerald-600'">
+                  返工率: {{ t.reworkRate }}%
+                </span>
+              </div>
+            </div>
+            <div v-if="technicianRankingData.length === 0" class="py-6 text-center text-xs text-slate-400">
+              暂无技师数据
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-slate-50/60 rounded-xl border border-slate-200/70 p-4 hover:border-emerald-200 transition-colors">
+          <div class="flex items-center gap-2 mb-4">
+            <div class="p-1.5 bg-emerald-100 rounded-md">
+              <Target class="w-4 h-4 text-emerald-600" />
+            </div>
+            <h4 class="text-sm font-semibold text-slate-800">交期达成率</h4>
+          </div>
+          <div class="flex flex-col md:flex-row items-center gap-5">
+            <div class="relative flex-shrink-0">
+              <svg class="w-36 h-36" viewBox="0 0 120 120">
+                <circle cx="60" cy="60" r="48" fill="none" stroke="#e2e8f0" stroke-width="10" />
+                <circle
+                  cx="60"
+                  cy="60"
+                  r="48"
+                  fill="none"
+                  :stroke="deliveryRateData.rate >= 90 ? '#10b981' : deliveryRateData.rate >= 75 ? '#f59e0b' : '#f43f5e'"
+                  stroke-width="10"
+                  stroke-linecap="round"
+                  stroke-dasharray="301.6"
+                  :stroke-dashoffset="301.6 - (301.6 * deliveryRateData.rate) / 100"
+                  transform="rotate(-90 60 60)"
+                />
+              </svg>
+              <div class="absolute inset-0 flex flex-col items-center justify-center">
+                <span
+                  class="text-2xl font-bold"
+                  :class="deliveryRateData.rate >= 90 ? 'text-emerald-600' : deliveryRateData.rate >= 75 ? 'text-amber-600' : 'text-rose-600'"
+                >
+                  {{ deliveryRateData.rate }}%
+                </span>
+                <span class="text-[10px] text-slate-500 mt-0.5">达成率</span>
+              </div>
+            </div>
+            <div class="flex-1 w-full space-y-3">
+              <div class="cursor-pointer group" @click="applyStatFilter('on-time-delivery')">
+                <div class="flex items-center justify-between mb-1">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                    <span class="text-xs font-medium text-slate-700 group-hover:text-slate-900">按时交付</span>
+                  </div>
+                  <span class="text-xs font-bold text-emerald-600">{{ deliveryRateData.onTime }} 单</span>
+                </div>
+                <div class="h-1.5 bg-slate-200/70 rounded-full overflow-hidden">
+                  <div
+                    class="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                    :style="{ width: deliveryRateData.total === 0 ? '0%' : `${(deliveryRateData.onTime / deliveryRateData.total) * 100}%` }"
+                  ></div>
+                </div>
+              </div>
+              <div class="cursor-pointer group" @click="applyStatFilter('late-delivery')">
+                <div class="flex items-center justify-between mb-1">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                    <span class="text-xs font-medium text-slate-700 group-hover:text-slate-900">逾期交付</span>
+                  </div>
+                  <span class="text-xs font-bold text-rose-600">{{ deliveryRateData.late }} 单</span>
+                </div>
+                <div class="h-1.5 bg-slate-200/70 rounded-full overflow-hidden">
+                  <div
+                    class="h-full bg-rose-500 rounded-full transition-all duration-500"
+                    :style="{ width: deliveryRateData.total === 0 ? '0%' : `${(deliveryRateData.late / deliveryRateData.total) * 100}%` }"
+                  ></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+                    <span class="text-xs font-medium text-slate-600">进行中</span>
+                  </div>
+                  <span class="text-xs font-bold text-slate-600">{{ deliveryRateData.pending }} 单</span>
+                </div>
+                <div class="h-1.5 bg-slate-200/70 rounded-full overflow-hidden">
+                  <div
+                    class="h-full bg-slate-400 rounded-full transition-all duration-500"
+                    :style="{ width: deliveryRateData.total === 0 ? '0%' : `${(deliveryRateData.pending / deliveryRateData.total) * 100}%` }"
+                  ></div>
+                </div>
+              </div>
+              <div class="pt-2 border-t border-slate-200/70 text-[11px] text-slate-500 flex items-center justify-between">
+                <span>总计评估: <span class="font-semibold text-slate-700">{{ deliveryRateData.total }} 单</span></span>
+                <span :class="deliveryRateData.rate >= 90 ? 'text-emerald-600 font-semibold' : deliveryRateData.rate >= 75 ? 'text-amber-600 font-semibold' : 'text-rose-600 font-semibold'">
+                  {{ deliveryRateData.rate >= 90 ? '优秀 👍' : deliveryRateData.rate >= 75 ? '良好' : '需关注 ⚠️' }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="mb-4 flex flex-wrap gap-2">
@@ -1182,6 +1985,7 @@ function formatDate(dateStr: string) {
 
     <div
       class="bg-white rounded-xl border border-slate-200 p-4 mb-6 sticky top-0 z-20"
+      data-filter-section
     >
       <div class="flex flex-col md:flex-row gap-3">
         <div class="flex-1 relative">
