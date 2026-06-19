@@ -3,7 +3,7 @@ import type {
   LogisticsRecord,
   LogisticsType,
   SignStatus,
-  ExceptionType,
+  LogisticsExceptionType,
   ShippingMethod,
   LogisticsTimelineEntry,
   LogisticsStats,
@@ -374,7 +374,7 @@ export function useLogistics() {
 
   function reportException(
     id: string,
-    exceptionType: ExceptionType,
+    exceptionType: LogisticsExceptionType,
     exceptionDescription: string,
     operator: string
   ): LogisticsRecord | undefined {

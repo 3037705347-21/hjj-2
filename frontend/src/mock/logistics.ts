@@ -1,4 +1,4 @@
-import type { LogisticsRecord, LogisticsType, SignStatus, ExceptionType, ShippingMethod, LogisticsTimelineEntry } from '../types'
+import type { LogisticsRecord, LogisticsType, SignStatus, LogisticsExceptionType, ShippingMethod, LogisticsTimelineEntry } from '../types'
 import { MockOrders, MockClinics } from './orders'
 
 function formatDate(date: Date): string {

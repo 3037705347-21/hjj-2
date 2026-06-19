@@ -9,6 +9,16 @@ export const MockClinics: Clinic[] = [
     phone: '010-8888-0001',
     address: '北京市朝阳区建国路88号',
     clinicCode: 'MDE-001',
+    cooperationStatus: 'active',
+    settlementMethod: 'monthly',
+    paymentTermDays: 30,
+    doctors: [
+      { id: 'D001', name: '李明华', title: '主治医师', isPrimary: true },
+      { id: 'D002', name: '张小红', title: '执业医师' },
+    ],
+    stats: { totalOrders: 156, reworkRate: 2.5, totalAmount: 125000 },
+    createdAt: '2025-01-15T09:00:00',
+    updatedAt: '2026-06-10T14:30:00',
   },
   {
     id: 'C002',
@@ -17,6 +27,15 @@ export const MockClinics: Clinic[] = [
     phone: '021-6666-0002',
     address: '上海市徐汇区淮海中路168号',
     clinicCode: 'KJD-002',
+    cooperationStatus: 'active',
+    settlementMethod: 'weekly',
+    paymentTermDays: 7,
+    doctors: [
+      { id: 'D003', name: '王雅芳', title: '副主任医师', isPrimary: true },
+    ],
+    stats: { totalOrders: 89, reworkRate: 1.8, totalAmount: 78500 },
+    createdAt: '2025-03-20T10:00:00',
+    updatedAt: '2026-06-12T11:20:00',
   },
   {
     id: 'C003',
@@ -25,6 +44,17 @@ export const MockClinics: Clinic[] = [
     phone: '020-7777-0003',
     address: '广州市天河区体育西路256号',
     clinicCode: 'HMC-003',
+    cooperationStatus: 'active',
+    settlementMethod: 'per-order',
+    paymentTermDays: 0,
+    doctors: [
+      { id: 'D004', name: '张伟强', title: '主任医师', isPrimary: true },
+      { id: 'D005', name: '刘美玲', title: '执业医师' },
+      { id: 'D006', name: '陈志远', title: '执业医师' },
+    ],
+    stats: { totalOrders: 234, reworkRate: 3.2, totalAmount: 198000 },
+    createdAt: '2024-11-08T08:30:00',
+    updatedAt: '2026-06-08T16:45:00',
   },
   {
     id: 'C004',
@@ -33,6 +63,15 @@ export const MockClinics: Clinic[] = [
     phone: '0755-9999-0004',
     address: '深圳市福田区深南大道6018号',
     clinicCode: 'RHO-004',
+    cooperationStatus: 'pending',
+    settlementMethod: 'quarterly',
+    paymentTermDays: 90,
+    doctors: [
+      { id: 'D007', name: '陈秀英', title: '主治医师', isPrimary: true },
+    ],
+    stats: { totalOrders: 45, reworkRate: 4.5, totalAmount: 36000 },
+    createdAt: '2025-08-01T14:00:00',
+    updatedAt: '2026-06-15T09:15:00',
   },
 ]
 

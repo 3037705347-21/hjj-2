@@ -724,7 +724,7 @@ export const SignStatusColors: Record<SignStatus, string> = {
   'exception': 'bg-rose-50 text-rose-600 border-rose-200',
 }
 
-export type ExceptionType =
+export type LogisticsExceptionType =
   | 'returned'
   | 'lost'
   | 'damaged'
@@ -733,7 +733,7 @@ export type ExceptionType =
   | 'refused'
   | 'other'
 
-export const ExceptionTypeLabels: Record<ExceptionType, string> = {
+export const LogisticsExceptionTypeLabels: Record<LogisticsExceptionType, string> = {
   'returned': '退回',
   'lost': '丢件',
   'damaged': '破损',
@@ -794,7 +794,7 @@ export interface LogisticsRecord {
   receiverPhone: string
   receiverAddress: string
   signStatus: SignStatus
-  exceptionType?: ExceptionType
+  exceptionType?: LogisticsExceptionType
   exceptionDescription?: string
   exceptionReportedAt?: string
   exceptionHandled?: boolean

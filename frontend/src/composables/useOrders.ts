@@ -969,6 +969,7 @@ export function useOrders() {
     markAsDelivered,
     addAttachment,
     addCommunication,
+    addSystemCommunication,
     initiateRework,
     acceptRework,
     startRectification,

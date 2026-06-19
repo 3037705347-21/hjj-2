@@ -32,7 +32,7 @@ import {
   ShippingMethodLabels,
   SignStatusLabels,
   SignStatusColors,
-  ExceptionTypeLabels,
+  LogisticsExceptionTypeLabels,
   LogisticsTypeLabels,
   type LogisticsRecord,
   type LogisticsTimelineEntry,
@@ -362,7 +362,7 @@ function getTimelineIcon(entry: LogisticsTimelineEntry) {
                 <div class="flex-1">
                   <div class="flex items-center gap-2 mb-1">
                     <span class="text-sm font-semibold text-rose-700">
-                      {{ ExceptionTypeLabels[record.exceptionType] }}
+                      {{ LogisticsExceptionTypeLabels[record.exceptionType] }}
                     </span>
                     <span
                       v-if="record.exceptionHandled"
@@ -689,7 +689,7 @@ function getTimelineIcon(entry: LogisticsTimelineEntry) {
             >
               <option value="">请选择异常类型</option>
               <option
-                v-for="(label, value) in ExceptionTypeLabels"
+                v-for="(label, value) in LogisticsExceptionTypeLabels"
                 :key="value"
                 :value="value"
               >

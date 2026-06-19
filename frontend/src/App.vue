@@ -22,7 +22,6 @@ import {
   UserCog,
   Briefcase,
   Truck,
-  Package,
   Send,
 } from 'lucide-vue-next'
 import { 

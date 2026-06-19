@@ -36,10 +36,10 @@ import {
   ShippingMethodLabels,
   SignStatusLabels,
   SignStatusColors,
-  ExceptionTypeLabels,
+  LogisticsExceptionTypeLabels,
   LogisticsTypeLabels,
   type LogisticsRecord,
-  type ExceptionType,
+  type LogisticsExceptionType,
 } from '../types'
 
 const route = useRoute()
@@ -88,7 +88,7 @@ function formatDate(dateStr: string) {
   })
 }
 
-function getExceptionIcon(type: ExceptionType | undefined) {
+function getExceptionIcon(type: LogisticsExceptionType | undefined) {
   if (!type) return AlertTriangle
   switch (type) {
     case 'returned':
@@ -276,7 +276,7 @@ function getReshippingMethods() {
                   :is="getExceptionIcon(record.exceptionType)"
                   class="w-4 h-4"
                 />
-                {{ ExceptionTypeLabels[record.exceptionType!] }}
+                {{ LogisticsExceptionTypeLabels[record.exceptionType!] }}
               </span>
               <span class="text-xs text-slate-500">
                 上报时间：{{ record.exceptionReportedAt ? formatDate(record.exceptionReportedAt) : formatDate(record.updatedAt) }}
