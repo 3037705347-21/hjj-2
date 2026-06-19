@@ -146,6 +146,260 @@ export function useOrders() {
     ]
   }
 
+  interface StageOperationParams {
+    technician?: string
+    notes?: string
+    errorReason?: string
+  }
+
+  function getCurrentStageIndex(order: Order): number {
+    return ProcessingStages.findIndex((s) => s.stage === order.currentStage)
+  }
+
+  function determineStatusFromStage(
+    stage: ProcessingStage,
+    hasReturnRecords: boolean
+  ): OrderStatus {
+    if (hasReturnRecords) return 'returned'
+    if (stage === 'delivered') return 'completed'
+    if (stage === 'received') return 'pending'
+    return 'in-progress'
+  }
+
+  function startStage(
+    orderId: string,
+    params: StageOperationParams = {}
+  ): Order | undefined {
+    const idx = orders.value.findIndex((o) => o.id === orderId)
+    if (idx === -1) return undefined
+
+    const order = orders.value[idx]
+    const now = formatDate(new Date())
+    const currentEntry = order.stageHistory.find(
+      (e) => e.stage === order.currentStage && !e.completedAt
+    )
+
+    if (currentEntry) {
+      currentEntry.startedAt = now
+      currentEntry.technician = params.technician || currentEntry.technician
+      currentEntry.notes = params.notes || currentEntry.notes
+    }
+
+    order.status = determineStatusFromStage(
+      order.currentStage,
+      order.returnRecords.length > 0
+    )
+
+    orders.value[idx] = { ...order }
+    return orders.value[idx]
+  }
+
+  function completeStage(
+    orderId: string,
+    params: StageOperationParams = {}
+  ): Order | undefined {
+    const idx = orders.value.findIndex((o) => o.id === orderId)
+    if (idx === -1) return undefined
+
+    const order = orders.value[idx]
+    const now = formatDate(new Date())
+    const currentIdx = getCurrentStageIndex(order)
+
+    const currentEntry = order.stageHistory.find(
+      (e) => e.stage === order.currentStage && !e.completedAt
+    )
+    if (currentEntry) {
+      currentEntry.completedAt = now
+      if (params.technician) currentEntry.technician = params.technician
+      if (params.notes) currentEntry.notes = params.notes
+      if (params.errorReason) currentEntry.errorReason = params.errorReason
+    }
+
+    if (currentIdx < ProcessingStages.length - 1) {
+      const nextStage = ProcessingStages[currentIdx + 1].stage
+      order.currentStage = nextStage
+      order.stageHistory.push({
+        stage: nextStage,
+        startedAt: now,
+        technician: '调度员-系统',
+        notes: params.notes,
+      })
+    }
+
+    order.status = determineStatusFromStage(
+      order.currentStage,
+      order.returnRecords.length > 0
+    )
+
+    orders.value[idx] = { ...order }
+    return orders.value[idx]
+  }
+
+  function returnToPreviousStage(
+    orderId: string,
+    params: StageOperationParams & {
+      reason: string
+      correctiveAction?: string
+      responsibleTechnician?: string
+    }
+  ): Order | undefined {
+    const idx = orders.value.findIndex((o) => o.id === orderId)
+    if (idx === -1) return undefined
+
+    const order = orders.value[idx]
+    const now = formatDate(new Date())
+    const currentIdx = getCurrentStageIndex(order)
+
+    if (currentIdx <= 0) return undefined
+
+    const currentEntry = order.stageHistory.find(
+      (e) => e.stage === order.currentStage && !e.completedAt
+    )
+    if (currentEntry) {
+      currentEntry.completedAt = now
+      if (params.technician) currentEntry.technician = params.technician
+      if (params.notes) currentEntry.notes = params.notes
+      currentEntry.errorReason = params.reason
+    }
+
+    const prevStage = ProcessingStages[currentIdx - 1].stage
+    order.currentStage = prevStage
+    order.stageHistory.push({
+      stage: prevStage,
+      startedAt: now,
+      technician: params.technician || '调度员-系统',
+      notes: params.notes || '退回返工',
+      errorReason: params.reason,
+    })
+
+    order.returnRecords.push({
+      id: `R${Date.now()}`,
+      orderId: order.id,
+      returnedAt: now,
+      reason: params.reason,
+      stageReturnedFrom: ProcessingStages[currentIdx].stage,
+      correctiveAction: params.correctiveAction || '',
+      responsibleTechnician: params.responsibleTechnician,
+    })
+
+    order.status = 'returned'
+
+    orders.value[idx] = { ...order }
+    return orders.value[idx]
+  }
+
+  function pauseOrder(
+    orderId: string,
+    params: StageOperationParams = {}
+  ): Order | undefined {
+    const idx = orders.value.findIndex((o) => o.id === orderId)
+    if (idx === -1) return undefined
+
+    const order = orders.value[idx]
+    const now = formatDate(new Date())
+
+    const currentEntry = order.stageHistory.find(
+      (e) => e.stage === order.currentStage && !e.completedAt
+    )
+    if (currentEntry) {
+      if (params.notes) currentEntry.notes = params.notes
+      if (params.technician) currentEntry.technician = params.technician
+    }
+
+    order.status = 'on-hold'
+
+    orders.value[idx] = { ...order }
+    return orders.value[idx]
+  }
+
+  function resumeOrder(
+    orderId: string,
+    params: StageOperationParams = {}
+  ): Order | undefined {
+    const idx = orders.value.findIndex((o) => o.id === orderId)
+    if (idx === -1) return undefined
+
+    const order = orders.value[idx]
+    const now = formatDate(new Date())
+
+    order.status = determineStatusFromStage(
+      order.currentStage,
+      order.returnRecords.length > 0
+    )
+
+    orders.value[idx] = { ...order }
+    return orders.value[idx]
+  }
+
+  function markAsShipped(
+    orderId: string,
+    params: StageOperationParams = {}
+  ): Order | undefined {
+    const idx = orders.value.findIndex((o) => o.id === orderId)
+    if (idx === -1) return undefined
+
+    const order = orders.value[idx]
+    const now = formatDate(new Date())
+
+    const currentEntry = order.stageHistory.find(
+      (e) => e.stage === order.currentStage && !e.completedAt
+    )
+    if (currentEntry) {
+      currentEntry.completedAt = now
+      if (params.technician) currentEntry.technician = params.technician
+      if (params.notes) currentEntry.notes = params.notes
+    }
+
+    const shippedIdx = ProcessingStages.findIndex((s) => s.stage === 'shipped')
+    order.currentStage = 'shipped'
+    if (!order.stageHistory.find((e) => e.stage === 'shipped' && !e.completedAt)) {
+      order.stageHistory.push({
+        stage: 'shipped',
+        startedAt: now,
+        technician: params.technician || '调度员-系统',
+        notes: params.notes || '已发货',
+      })
+    }
+
+    order.status = 'in-progress'
+
+    orders.value[idx] = { ...order }
+    return orders.value[idx]
+  }
+
+  function markAsDelivered(
+    orderId: string,
+    params: StageOperationParams = {}
+  ): Order | undefined {
+    const idx = orders.value.findIndex((o) => o.id === orderId)
+    if (idx === -1) return undefined
+
+    const order = orders.value[idx]
+    const now = formatDate(new Date())
+
+    const shippedEntry = order.stageHistory.find(
+      (e) => e.stage === 'shipped' && !e.completedAt
+    )
+    if (shippedEntry) {
+      shippedEntry.completedAt = now
+      if (params.technician) shippedEntry.technician = params.technician
+    }
+
+    order.currentStage = 'delivered'
+    order.stageHistory.push({
+      stage: 'delivered',
+      startedAt: now,
+      completedAt: now,
+      technician: params.technician || '调度员-系统',
+      notes: params.notes || '诊所已签收',
+    })
+
+    order.status = 'completed'
+
+    orders.value[idx] = { ...order }
+    return orders.value[idx]
+  }
+
   interface CreateOrderParams {
     clinicId: string
     doctorName: string
@@ -274,5 +528,12 @@ export function useOrders() {
     getOrders,
     generateOrderNumber,
     generateAnonymousCode,
+    startStage,
+    completeStage,
+    returnToPreviousStage,
+    pauseOrder,
+    resumeOrder,
+    markAsShipped,
+    markAsDelivered,
   }
 }

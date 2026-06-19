@@ -108,6 +108,7 @@ export interface StageHistoryEntry {
   completedAt?: string
   technician?: string
   notes?: string
+  errorReason?: string
 }
 
 export type OrderPriority = 'standard' | 'urgent' | 'stat'

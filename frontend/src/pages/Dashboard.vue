@@ -15,9 +15,21 @@ import {
   Filter,
   PackageOpen,
   Plus,
+  ChevronRight,
+  Building2,
+  User,
+  Calendar,
+  AlertCircle,
+  Play,
+  Pause,
+  Undo2,
+  CheckCircle,
 } from 'lucide-vue-next'
 import StatCard from '../components/StatCard.vue'
 import OrderCard from '../components/OrderCard.vue'
+import StatusBadge from '../components/StatusBadge.vue'
+import PriorityBadge from '../components/PriorityBadge.vue'
+import StageTimeline from '../components/StageTimeline.vue'
 import type {
   Order,
   OrderStatus,
@@ -28,6 +40,8 @@ import {
   OrderStatusLabels,
   PriorityLabels,
   ProcessingStages,
+  RestorationTypeLabels,
+  MaterialTypeLabels,
 } from '../types'
 import { useOrders } from '../composables/useOrders'
 import { cn } from '../lib/utils'
@@ -42,6 +56,7 @@ const statusFilter = ref<OrderStatus | 'all'>('all')
 const priorityFilter = ref<OrderPriority | 'all'>('all')
 const clinicFilter = ref<string>('all')
 const stageFilter = ref<ProcessingStage | 'all'>('all')
+const viewMode = ref<'kanban' | 'list'>('kanban')
 
 const today = new Date()
 
@@ -114,6 +129,130 @@ const filteredOrders = computed(() => {
   })
 })
 
+interface KanbanColumn {
+  key: OrderStatus
+  label: string
+  icon: any
+  toneClass: string
+  headerClass: string
+  badgeClass: string
+}
+
+const kanbanColumns: KanbanColumn[] = [
+  {
+    key: 'pending',
+    label: '待开工',
+    icon: Clock,
+    toneClass: 'bg-slate-50 border-slate-200',
+    headerClass: 'text-slate-700 bg-slate-100/70 border-slate-200',
+    badgeClass: 'bg-slate-500',
+  },
+  {
+    key: 'in-progress',
+    label: '进行中',
+    icon: Play,
+    toneClass: 'bg-blue-50/50 border-blue-200',
+    headerClass: 'text-blue-700 bg-blue-100/70 border-blue-200',
+    badgeClass: 'bg-blue-500',
+  },
+  {
+    key: 'on-hold',
+    label: '已暂停',
+    icon: Pause,
+    toneClass: 'bg-amber-50/50 border-amber-200',
+    headerClass: 'text-amber-700 bg-amber-100/70 border-amber-200',
+    badgeClass: 'bg-amber-500',
+  },
+  {
+    key: 'returned',
+    label: '已返工',
+    icon: Undo2,
+    toneClass: 'bg-rose-50/50 border-rose-200',
+    headerClass: 'text-rose-700 bg-rose-100/70 border-rose-200',
+    badgeClass: 'bg-rose-500',
+  },
+  {
+    key: 'completed',
+    label: '已完成',
+    icon: CheckCircle,
+    toneClass: 'bg-emerald-50/50 border-emerald-200',
+    headerClass: 'text-emerald-700 bg-emerald-100/70 border-emerald-200',
+    badgeClass: 'bg-emerald-500',
+  },
+]
+
+function getOrdersByStatus(status: OrderStatus): Order[] {
+  return filteredOrders.value.filter((o) => o.status === status)
+}
+
+function isDelayed(order: Order): boolean {
+  const delivery = new Date(order.deliveryDate)
+  const daysToDelivery = Math.ceil(
+    (delivery.getTime() - new Date(today.toDateString()).getTime()) / 86400000
+  )
+  return (
+    daysToDelivery < 0 &&
+    order.status !== 'completed' &&
+    order.currentStage !== 'delivered'
+  )
+}
+
+function isDueSoon(order: Order): boolean {
+  const delivery = new Date(order.deliveryDate)
+  const daysToDelivery = Math.ceil(
+    (delivery.getTime() - new Date(today.toDateString()).getTime()) / 86400000
+  )
+  return (
+    daysToDelivery >= 0 &&
+    daysToDelivery <= 2 &&
+    order.status !== 'completed'
+  )
+}
+
+function daysToDelivery(order: Order): number {
+  const delivery = new Date(order.deliveryDate)
+  return Math.ceil(
+    (delivery.getTime() - new Date(today.toDateString()).getTime()) / 86400000
+  )
+}
+
+function getCardHighlightClass(order: Order): string {
+  if (order.returnRecords.length > 0) {
+    return 'ring-2 ring-rose-300 border-rose-300 bg-rose-50/30'
+  }
+  if (order.priority === 'stat') {
+    return 'ring-2 ring-rose-300 border-rose-300'
+  }
+  if (isDelayed(order)) {
+    return 'ring-2 ring-rose-300 border-rose-300'
+  }
+  if (order.priority === 'urgent' || isDueSoon(order)) {
+    return 'ring-2 ring-amber-300 border-amber-300'
+  }
+  return ''
+}
+
+function getWorkSummary(order: Order): string {
+  return order.workItems
+    .filter((w) => w.toothNumber !== 'all')
+    .map((w) => w.toothNumber)
+    .join(', ')
+}
+
+function getMaterials(order: Order): string {
+  return Array.from(
+    new Set(order.workItems.map((w) => MaterialTypeLabels[w.material]))
+  ).join('、')
+}
+
+function getRestorationTypes(order: Order): string {
+  return Array.from(
+    new Set(
+      order.workItems.map((w) => RestorationTypeLabels[w.restorationType])
+    )
+  ).join('、')
+}
+
 const hasActiveFilters = computed(() => {
   return (
     statusFilter.value !== 'all' ||
@@ -142,6 +281,14 @@ function refreshData() {
   searchQuery.value = ''
   clearFilters()
 }
+
+function formatDate(dateStr: string) {
+  const d = new Date(dateStr)
+  return d.toLocaleDateString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+  })
+}
 </script>
 
 <template>
@@ -157,6 +304,22 @@ function refreshData() {
           </p>
         </div>
         <div class="flex items-center gap-2">
+          <div class="inline-flex items-center p-1 bg-slate-100 rounded-lg mr-2">
+            <button
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
+              :class="viewMode === 'kanban' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-600 hover:text-slate-800'"
+              @click="viewMode = 'kanban'"
+            >
+              看板
+            </button>
+            <button
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
+              :class="viewMode === 'list' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-600 hover:text-slate-800'"
+              @click="viewMode = 'list'"
+            >
+              列表
+            </button>
+          </div>
           <button
             class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
             @click="goToNewOrder"
@@ -349,48 +512,172 @@ function refreshData() {
       </div>
     </div>
 
-    <div class="mb-4 flex items-center justify-between">
-      <div class="text-sm text-slate-600">
-        共
-        <span class="font-semibold text-slate-800">
-          {{ filteredOrders.length }}
-        </span>
-        条订单
+    <template v-if="viewMode === 'kanban'">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <div
+          v-for="col in kanbanColumns"
+          :key="col.key"
+          class="rounded-xl border overflow-hidden flex flex-col max-h-[calc(100vh-380px)]"
+          :class="col.toneClass"
+        >
+          <div
+            class="px-4 py-3 border-b flex items-center justify-between"
+            :class="col.headerClass"
+          >
+            <div class="flex items-center gap-2">
+              <component :is="col.icon" class="w-4 h-4" />
+              <span class="text-sm font-semibold">{{ col.label }}</span>
+            </div>
+            <span
+              class="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 text-xs font-bold text-white rounded-full"
+              :class="col.badgeClass"
+            >
+              {{ getOrdersByStatus(col.key).length }}
+            </span>
+          </div>
+          <div class="p-3 space-y-3 overflow-y-auto flex-1">
+            <div
+              v-for="order in getOrdersByStatus(col.key)"
+              :key="order.id"
+              class="group bg-white rounded-lg border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all duration-200 overflow-hidden cursor-pointer p-3"
+              :class="getCardHighlightClass(order)"
+              @click="goToDetail(order)"
+            >
+              <div class="flex items-start justify-between gap-2 mb-2">
+                <div class="flex items-center gap-1.5 min-w-0 flex-wrap">
+                  <span
+                    class="text-xs font-bold tracking-tight text-slate-800 font-mono"
+                  >
+                    {{ order.orderNumber }}
+                  </span>
+                </div>
+                <ChevronRight
+                  class="w-4 h-4 text-slate-300 group-hover:text-slate-500 group-hover:translate-x-0.5 transition-all flex-shrink-0"
+                />
+              </div>
+
+              <div class="flex items-center gap-1.5 mb-2 flex-wrap">
+                <PriorityBadge :priority="order.priority" />
+                <StatusBadge :status="order.status" />
+                <div
+                  v-if="order.returnRecords.length > 0"
+                  class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-rose-50 rounded text-[10px] text-rose-600 font-medium border border-rose-200"
+                >
+                  <Undo2 class="w-2.5 h-2.5" />
+                  返工x{{ order.returnRecords.length }}
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2 text-[11px] text-slate-500 mb-2">
+                <span class="flex items-center gap-1 truncate">
+                  <Building2 class="w-3 h-3 flex-shrink-0" />
+                  <span class="truncate">{{ order.clinic.name }}</span>
+                </span>
+              </div>
+
+              <div class="grid grid-cols-2 gap-2 text-[11px] mb-2">
+                <div>
+                  <div class="text-slate-400 mb-0.5">修复类型</div>
+                  <div class="font-medium text-slate-700 truncate">{{ getRestorationTypes(order) }}</div>
+                </div>
+                <div>
+                  <div class="text-slate-400 mb-0.5">牙位</div>
+                  <div class="font-medium text-slate-700 truncate">
+                    {{ getWorkSummary(order) || '全口' }}
+                  </div>
+                </div>
+              </div>
+
+              <div class="mb-2">
+                <StageTimeline :current-stage="order.currentStage" compact />
+              </div>
+
+              <div
+                class="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px]"
+              >
+                <div
+                  class="flex items-center gap-1"
+                  :class="[
+                    isDelayed(order)
+                      ? 'text-rose-600'
+                      : isDueSoon(order)
+                      ? 'text-amber-600'
+                      : 'text-slate-500',
+                  ]"
+                >
+                  <Calendar class="w-3 h-3" />
+                  <span>{{ formatDate(order.deliveryDate) }}</span>
+                  <template v-if="isDelayed(order)">
+                    <AlertCircle class="w-3 h-3" />
+                    <span class="font-medium">逾期{{ Math.abs(daysToDelivery(order)) }}天</span>
+                  </template>
+                  <template v-else-if="isDueSoon(order) && daysToDelivery(order) === 0">
+                    <AlertCircle class="w-3 h-3" />
+                    <span class="font-medium">今日</span>
+                  </template>
+                  <template v-else-if="isDueSoon(order)">
+                    <AlertCircle class="w-3 h-3" />
+                    <span class="font-medium">{{ daysToDelivery(order) }}天</span>
+                  </template>
+                </div>
+              </div>
+            </div>
+
+            <div
+              v-if="getOrdersByStatus(col.key).length === 0"
+              class="py-8 text-center text-xs text-slate-400"
+            >
+              暂无订单
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
+    </template>
 
-    <div
-      v-if="filteredOrders.length > 0"
-      class="grid grid-cols-1 lg:grid-cols-2 gap-5"
-    >
-      <OrderCard
-        v-for="order in filteredOrders"
-        :key="order.id"
-        :order="order"
-        @view-detail="goToDetail(order)"
-      />
-    </div>
+    <template v-else>
+      <div class="mb-4 flex items-center justify-between">
+        <div class="text-sm text-slate-600">
+          共
+          <span class="font-semibold text-slate-800">
+            {{ filteredOrders.length }}
+          </span>
+          条订单
+        </div>
+      </div>
 
-    <div
-      v-else
-      class="bg-white rounded-xl border border-slate-200 border-dashed p-12 text-center"
-    >
       <div
-        class="w-14 h-14 mx-auto mb-4 rounded-full bg-slate-100 flex items-center justify-center"
+        v-if="filteredOrders.length > 0"
+        class="grid grid-cols-1 lg:grid-cols-2 gap-5"
       >
-        <Filter class="w-7 h-7 text-slate-400" />
+        <OrderCard
+          v-for="order in filteredOrders"
+          :key="order.id"
+          :order="order"
+          @view-detail="goToDetail(order)"
+        />
       </div>
-      <h3 class="text-base font-medium text-slate-700 mb-1">暂无匹配订单</h3>
-      <p class="text-sm text-slate-500 mb-4">
-        试试调整搜索条件或清除筛选器
-      </p>
-      <button
-        v-if="searchQuery || hasActiveFilters"
-        class="text-sm font-medium text-blue-600 hover:text-blue-700"
-        @click="refreshData"
+
+      <div
+        v-else
+        class="bg-white rounded-xl border border-slate-200 border-dashed p-12 text-center"
       >
-        重置所有条件
-      </button>
-    </div>
+        <div
+          class="w-14 h-14 mx-auto mb-4 rounded-full bg-slate-100 flex items-center justify-center"
+        >
+          <Filter class="w-7 h-7 text-slate-400" />
+        </div>
+        <h3 class="text-base font-medium text-slate-700 mb-1">暂无匹配订单</h3>
+        <p class="text-sm text-slate-500 mb-4">
+          试试调整搜索条件或清除筛选器
+        </p>
+        <button
+          v-if="searchQuery || hasActiveFilters"
+          class="text-sm font-medium text-blue-600 hover:text-blue-700"
+          @click="refreshData"
+        >
+          重置所有条件
+        </button>
+      </div>
+    </template>
   </div>
 </template>

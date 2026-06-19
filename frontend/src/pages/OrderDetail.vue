@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   ArrowLeft,
@@ -23,13 +23,22 @@ import {
   RefreshCw,
   Pencil,
   Plus,
+  Play,
+  CheckCheck,
+  Undo2,
+  Pause,
+  PlayCircle,
+  Truck,
+  PackageCheck,
+  X,
+  AlertTriangle,
 } from 'lucide-vue-next'
 import StatusBadge from '../components/StatusBadge.vue'
 import PriorityBadge from '../components/PriorityBadge.vue'
 import ToothChart from '../components/ToothChart.vue'
 import StageTimeline from '../components/StageTimeline.vue'
 import { useOrders } from '../composables/useOrders'
-import type { StageHistoryEntry } from '../types'
+import type { StageHistoryEntry, ProcessingStage } from '../types'
 import {
   ProcessingStages,
   RestorationTypeLabels,
@@ -39,7 +48,17 @@ import {
 
 const route = useRoute()
 const router = useRouter()
-const { getOrderById, copyOrder } = useOrders()
+const {
+  getOrderById,
+  copyOrder,
+  startStage,
+  completeStage,
+  returnToPreviousStage,
+  pauseOrder,
+  resumeOrder,
+  markAsShipped,
+  markAsDelivered,
+} = useOrders()
 
 const order = computed(() => getOrderById(String(route.params.id)))
 
@@ -65,6 +84,171 @@ const deliveryStatusClass = computed(() => {
   if (daysToDelivery.value <= 2)
     return 'text-amber-700 bg-amber-50 border-amber-200'
   return 'text-slate-600 bg-slate-50 border-slate-200'
+})
+
+const currentStageIndex = computed(() => {
+  if (!order.value) return -1
+  return ProcessingStages.findIndex((s) => s.stage === order.value!.currentStage)
+})
+
+const canStart = computed(() => {
+  if (!order.value) return false
+  if (order.value.status === 'completed' || order.value.status === 'on-hold') return false
+  const currentEntry = order.value.stageHistory.find(
+    (e) => e.stage === order.value!.currentStage && !e.completedAt
+  )
+  return !!currentEntry
+})
+
+const canComplete = computed(() => {
+  if (!order.value) return false
+  if (order.value.status === 'completed' || order.value.status === 'on-hold') return false
+  const currentEntry = order.value.stageHistory.find(
+    (e) => e.stage === order.value!.currentStage && !e.completedAt
+  )
+  return !!currentEntry && currentStageIndex.value < ProcessingStages.length - 1
+})
+
+const canReturn = computed(() => {
+  if (!order.value) return false
+  if (order.value.status === 'completed') return false
+  return currentStageIndex.value > 0
+})
+
+const canPause = computed(() => {
+  if (!order.value) return false
+  return order.value.status !== 'completed' && order.value.status !== 'on-hold'
+})
+
+const canResume = computed(() => {
+  return order.value?.status === 'on-hold'
+})
+
+const canShip = computed(() => {
+  if (!order.value) return false
+  return (
+    order.value.currentStage === 'quality-check' &&
+    order.value.status !== 'completed'
+  ) || (order.value.currentStage === 'shipped' && !order.value.stageHistory.find(e => e.stage === 'shipped' && e.completedAt))
+})
+
+const canDeliver = computed(() => {
+  if (!order.value) return false
+  return (
+    order.value.currentStage === 'shipped' &&
+    order.value.status !== 'completed'
+  )
+})
+
+type DialogMode =
+  | 'start'
+  | 'complete'
+  | 'return'
+  | 'pause'
+  | 'resume'
+  | 'ship'
+  | 'deliver'
+  | null
+
+const showDialog = ref(false)
+const dialogMode = ref<DialogMode>(null)
+const formTechnician = ref('')
+const formNotes = ref('')
+const formErrorReason = ref('')
+const formCorrectiveAction = ref('')
+
+function openDialog(mode: DialogMode) {
+  dialogMode.value = mode
+  formTechnician.value = ''
+  formNotes.value = ''
+  formErrorReason.value = ''
+  formCorrectiveAction.value = ''
+  showDialog.value = true
+}
+
+function closeDialog() {
+  showDialog.value = false
+  dialogMode.value = null
+}
+
+function confirmAction() {
+  if (!order.value) return
+  const id = order.value.id
+
+  switch (dialogMode.value) {
+    case 'start':
+      startStage(id, {
+        technician: formTechnician.value,
+        notes: formNotes.value,
+      })
+      break
+    case 'complete':
+      completeStage(id, {
+        technician: formTechnician.value,
+        notes: formNotes.value,
+        errorReason: formErrorReason.value || undefined,
+      })
+      break
+    case 'return':
+      if (!formErrorReason.value.trim()) {
+        alert('请填写退回原因')
+        return
+      }
+      returnToPreviousStage(id, {
+        technician: formTechnician.value,
+        notes: formNotes.value,
+        reason: formErrorReason.value,
+        correctiveAction: formCorrectiveAction.value || undefined,
+      })
+      break
+    case 'pause':
+      pauseOrder(id, {
+        technician: formTechnician.value,
+        notes: formNotes.value,
+      })
+      break
+    case 'resume':
+      resumeOrder(id, {
+        technician: formTechnician.value,
+        notes: formNotes.value,
+      })
+      break
+    case 'ship':
+      markAsShipped(id, {
+        technician: formTechnician.value,
+        notes: formNotes.value,
+      })
+      break
+    case 'deliver':
+      markAsDelivered(id, {
+        technician: formTechnician.value,
+        notes: formNotes.value,
+      })
+      break
+  }
+
+  closeDialog()
+}
+
+const dialogTitle = computed(() => {
+  switch (dialogMode.value) {
+    case 'start':
+      return `开始阶段：${ProcessingStages[currentStageIndex.value]?.label}`
+    case 'complete':
+      return `完成阶段：${ProcessingStages[currentStageIndex.value]?.label}`
+    case 'return':
+      return `退回上一阶段`
+    case 'pause':
+      return '暂停处理'
+    case 'resume':
+      return '恢复处理'
+    case 'ship':
+      return '标记已发货'
+    case 'deliver':
+      return '标记已送达'
+    default:
+      return ''
+  }
 })
 
 function formatDate(dateStr: string) {
@@ -210,6 +394,89 @@ function goToNewOrder() {
       </div>
     </div>
 
+    <div
+        v-if="order.status !== 'completed'"
+        class="bg-white rounded-xl border border-slate-200 overflow-hidden mb-6"
+      >
+        <div
+          class="px-5 py-4 border-b border-slate-100 flex items-center justify-between"
+        >
+          <div class="flex items-center gap-2">
+            <div
+              class="w-8 h-8 rounded-lg bg-orange-50 border border-orange-100 flex items-center justify-center"
+            >
+              <Wrench class="w-4 h-4 text-orange-600" />
+            </div>
+            <h2 class="text-base font-semibold text-slate-800">
+              操作区
+            </h2>
+          </div>
+          <span class="text-xs text-slate-500">
+            当前阶段：{{ getStageInfo(order.currentStage)?.label }}
+          </span>
+        </div>
+        <div class="p-5">
+          <div class="flex flex-wrap gap-3">
+            <button
+              v-if="canStart"
+              class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+              @click="openDialog('start')"
+            >
+              <Play class="w-4 h-4" />
+              开始阶段
+            </button>
+            <button
+              v-if="canComplete"
+              class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
+              @click="openDialog('complete')"
+            >
+              <CheckCheck class="w-4 h-4" />
+              完成阶段
+            </button>
+            <button
+              v-if="canReturn"
+              class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-rose-600 rounded-lg hover:bg-rose-700 transition-colors shadow-sm"
+              @click="openDialog('return')"
+            >
+              <Undo2 class="w-4 h-4" />
+              退回上一阶段
+            </button>
+            <button
+              v-if="canPause"
+              class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-amber-600 rounded-lg hover:bg-amber-700 transition-colors shadow-sm"
+              @click="openDialog('pause')"
+            >
+              <Pause class="w-4 h-4" />
+              暂停处理
+            </button>
+            <button
+              v-if="canResume"
+              class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-sky-600 rounded-lg hover:bg-sky-700 transition-colors shadow-sm"
+              @click="openDialog('resume')"
+            >
+              <PlayCircle class="w-4 h-4" />
+              恢复处理
+            </button>
+            <button
+              v-if="canShip"
+              class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-violet-600 rounded-lg hover:bg-violet-700 transition-colors shadow-sm"
+              @click="openDialog('ship')"
+            >
+              <Truck class="w-4 h-4" />
+              标记已发货
+            </button>
+            <button
+              v-if="canDeliver"
+              class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors shadow-sm"
+              @click="openDialog('deliver')"
+            >
+              <PackageCheck class="w-4 h-4" />
+              标记已送达
+            </button>
+          </div>
+        </div>
+      </div>
+
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
       <div class="xl:col-span-2 space-y-6">
         <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -330,6 +597,17 @@ function goToNewOrder() {
                       {{ entry.technician }}
                     </span>
                   </div>
+
+                  <p
+                    v-if="entry.errorReason"
+                    class="text-sm text-rose-700 bg-rose-50 rounded-md px-3 py-2 border border-rose-100 mb-2"
+                  >
+                    <span class="inline-flex items-center gap-1 font-medium">
+                      <AlertTriangle class="w-3.5 h-3.5" />
+                      异常原因：
+                    </span>
+                    {{ entry.errorReason }}
+                  </p>
 
                   <p
                     v-if="entry.notes"
@@ -723,4 +1001,113 @@ function goToNewOrder() {
       返回看板
     </button>
   </div>
+
+  <Teleport to="body">
+    <div
+      v-if="showDialog"
+      class="fixed inset-0 z-50 flex items-center justify-center"
+    >
+      <div
+        class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+        @click="closeDialog"
+      ></div>
+      <div
+        class="relative bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+      >
+        <div
+          class="px-5 py-4 border-b border-slate-100 flex items-center justify-between"
+        >
+          <h3 class="text-base font-semibold text-slate-800">
+            {{ dialogTitle }}
+          </h3>
+          <button
+            class="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+            @click="closeDialog"
+          >
+            <X class="w-4 h-4" />
+          </button>
+        </div>
+        <div class="p-5 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">
+              操作人
+            </label>
+            <input
+              v-model="formTechnician"
+              type="text"
+              placeholder="请输入操作人姓名"
+              class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-slate-400"
+            />
+          </div>
+
+          <div v-if="dialogMode === 'return'">
+            <label class="block text-sm font-medium text-rose-700 mb-1.5">
+              <span class="inline-flex items-center gap-1">
+                <AlertTriangle class="w-3.5 h-3.5" />
+                退回原因 <span class="text-rose-500">*</span>
+              </span>
+            </label>
+            <textarea
+              v-model="formErrorReason"
+              rows="3"
+              placeholder="请详细描述退回原因，如质量问题、返工需求等"
+              class="w-full px-3 py-2 text-sm border border-rose-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent placeholder:text-slate-400 resize-none"
+            ></textarea>
+          </div>
+
+          <div v-if="dialogMode === 'complete'">
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">
+              异常原因（可选）
+            </label>
+            <textarea
+              v-model="formErrorReason"
+              rows="2"
+              placeholder="若本阶段存在异常情况请填写，正常完成可留空"
+              class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-slate-400 resize-none"
+            ></textarea>
+          </div>
+
+          <div v-if="dialogMode === 'return'">
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">
+              整改措施（可选）
+            </label>
+            <textarea
+              v-model="formCorrectiveAction"
+              rows="2"
+              placeholder="请描述计划采取的整改措施"
+              class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-slate-400 resize-none"
+            ></textarea>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">
+              备注（可选）
+            </label>
+            <textarea
+              v-model="formNotes"
+              rows="2"
+              placeholder="请输入操作备注"
+              class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-slate-400 resize-none"
+            ></textarea>
+          </div>
+        </div>
+        <div
+          class="px-5 py-4 border-t border-slate-100 flex items-center justify-end gap-3 bg-slate-50"
+        >
+          <button
+            class="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+            @click="closeDialog"
+          >
+            取消
+          </button>
+          <button
+            class="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+            @click="confirmAction"
+          >
+            确认
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
