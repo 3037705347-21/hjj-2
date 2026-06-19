@@ -68,11 +68,51 @@ import {
   ReworkStatusLabels,
 } from '../types'
 import { useOrders } from '../composables/useOrders'
+import { useRoles, ROLE_STORAGE_KEY } from '../composables/useRoles'
 import { cn } from '../lib/utils'
 
 const router = useRouter()
 const { orders: allOrders, getClinics } = useOrders()
 const MockClinics = getClinics()
+
+const {
+  currentRole,
+  filterOrdersByRole,
+  canPerformAction,
+  canViewField,
+  getDashboardConfig,
+  currentTechnicianName,
+  setTechnicianName,
+} = useRoles()
+
+const dashboardConfig = computed(() => getDashboardConfig())
+
+const roleFilteredOrders = computed(() => filterOrdersByRole(allOrders.value))
+
+function handleRoleChange() {
+  clearFilters()
+  if (currentRole.value === 'technician') {
+    activeQuickView.value = 'mytasks'
+    if (!currentTechnicianName.value.trim()) {
+      showMyTasksConfig.value = true
+    }
+  } else if (currentRole.value === 'clinic') {
+    activeQuickView.value = 'all'
+  }
+}
+
+watch(currentRole, handleRoleChange)
+
+function loadInitialViewMode(): 'kanban' | 'list' {
+  try {
+    const saved = localStorage.getItem(ROLE_STORAGE_KEY)
+    if (saved === 'clinic') return 'list'
+    if (saved === 'technician') return 'kanban'
+  } catch (e) {}
+  return 'kanban'
+}
+
+const viewMode = ref<'kanban' | 'list'>(loadInitialViewMode())
 
 const searchQuery = ref('')
 const showFilters = ref(false)
@@ -80,7 +120,6 @@ const statusFilter = ref<OrderStatus | 'all'>('all')
 const priorityFilter = ref<OrderPriority | 'all'>('all')
 const clinicFilter = ref<string>('all')
 const stageFilter = ref<ProcessingStage | 'all'>('all')
-const viewMode = ref<'kanban' | 'list'>('kanban')
 
 const createdAtStart = ref<string>('')
 const createdAtEnd = ref<string>('')
@@ -160,32 +199,33 @@ const showAdvancedFilters = ref(false)
 const today = new Date()
 
 const stats = computed(() => {
-  const total = allOrders.value.length
-  const inProgress = allOrders.value.filter(
+  const sourceOrders = roleFilteredOrders.value
+  const total = sourceOrders.length
+  const inProgress = sourceOrders.filter(
     (o) => o.status === 'in-progress' || o.status === 'pending'
   ).length
-  const urgent = allOrders.value.filter(
+  const urgent = sourceOrders.filter(
     (o) =>
       (o.priority === 'urgent' || o.priority === 'stat') &&
       o.status !== 'completed'
   ).length
-  const dueToday = allOrders.value.filter((o) => {
+  const dueToday = sourceOrders.filter((o) => {
     const d = new Date(o.deliveryDate)
     return (
       d.toDateString() === today.toDateString() && o.status !== 'completed'
     )
   }).length
-  const overdue = allOrders.value.filter((o) => {
+  const overdue = sourceOrders.filter((o) => {
     const d = new Date(o.deliveryDate)
     return d < today && o.status !== 'completed'
   }).length
-  const completedToday = allOrders.value.filter((o) => {
+  const completedToday = sourceOrders.filter((o) => {
     const delivered = o.stageHistory.find((s) => s.stage === 'delivered')
     if (!delivered?.completedAt) return false
     const d = new Date(delivered.completedAt)
     return d.toDateString() === today.toDateString()
   }).length
-  const returned = allOrders.value.filter((o) => o.returnRecords.length > 0).length
+  const returned = sourceOrders.filter((o) => o.returnRecords.length > 0).length
 
   return {
     total,
@@ -199,7 +239,7 @@ const stats = computed(() => {
 })
 
 const filteredOrders = computed(() => {
-  return allOrders.value.filter((order) => {
+  return roleFilteredOrders.value.filter((order) => {
     if (searchQuery.value.trim()) {
       const q = searchQuery.value.toLowerCase()
       const match =
@@ -397,8 +437,8 @@ const filteredOrders = computed(() => {
         if (order.priority === 'standard') return false
       }
       if (activeQuickView.value === 'mytasks') {
-        if (!myTechnicianName.value.trim()) return false
-        const q = myTechnicianName.value.toLowerCase()
+        if (!currentTechnicianName.value.trim()) return false
+        const q = currentTechnicianName.value.toLowerCase()
         const currentEntry = order.stageHistory.find(
           (s) => s.stage === order.currentStage && !s.completedAt
         )
@@ -661,9 +701,11 @@ function clearFilters() {
   activeQuickView.value = 'all'
 }
 
+handleRoleChange()
+
 function setQuickView(view: QuickViewKey) {
   activeQuickView.value = view
-  if (view === 'mytasks' && !myTechnicianName.value.trim()) {
+  if (view === 'mytasks' && !currentTechnicianName.value.trim()) {
     showMyTasksConfig.value = true
   }
 }
@@ -783,24 +825,14 @@ function deleteScheme(id: string) {
 }
 
 function loadMyTechnicianName() {
-  try {
-    const name = localStorage.getItem(MY_TASKS_TECHNICIAN_KEY)
-    if (name) {
-      myTechnicianName.value = name
-    }
-  } catch (e) {
-    console.warn('Failed to load technician name:', e)
-  }
+  myTechnicianName.value = currentTechnicianName.value
 }
 
 function saveMyTechnicianName() {
   if (!myTasksTechnicianInput.value.trim()) return
-  myTechnicianName.value = myTasksTechnicianInput.value.trim()
-  try {
-    localStorage.setItem(MY_TASKS_TECHNICIAN_KEY, myTechnicianName.value)
-  } catch (e) {
-    console.warn('Failed to save technician name:', e)
-  }
+  const name = myTasksTechnicianInput.value.trim()
+  setTechnicianName(name)
+  myTechnicianName.value = name
   showMyTasksConfig.value = false
 }
 
@@ -928,10 +960,10 @@ function formatDate(dateStr: string) {
       <div class="flex items-start justify-between mb-2">
         <div>
           <h1 class="text-2xl font-bold text-slate-900 tracking-tight">
-            订单看板
+            {{ dashboardConfig.title }}
           </h1>
           <p class="mt-1 text-sm text-slate-500">
-            监控全部加工订单进度，确保按时交付
+            {{ dashboardConfig.subtitle }}
           </p>
         </div>
         <div class="flex items-center gap-2">
@@ -952,6 +984,7 @@ function formatDate(dateStr: string) {
             </button>
           </div>
           <button
+            v-if="canPerformAction('create')"
             class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
             @click="goToNewOrder"
           >
@@ -970,39 +1003,104 @@ function formatDate(dateStr: string) {
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      <StatCard
-        title="在制订单"
-        :value="stats.inProgress"
-        :icon="PackageOpen"
-        tone="primary"
-        description="总数 "
-        :trend="'+' + stats.total"
-      />
-      <StatCard
-        title="加急订单"
-        :value="stats.urgent"
-        :icon="AlertTriangle"
-        tone="warning"
-        description="需优先处理"
-      />
-      <StatCard
-        title="今日交付"
-        :value="stats.dueToday"
-        :icon="CalendarCheck"
-        tone="primary"
-        :description="'逾期: ' + stats.overdue + ' 单'"
-      />
-      <StatCard
-        title="返工订单"
-        :value="stats.returned"
-        :icon="RefreshCw"
-        tone="danger"
-        description="质量问题追踪"
-      />
+      <template v-if="currentRole === 'clinic'">
+        <StatCard
+          title="进行中订单"
+          :value="stats.inProgress"
+          :icon="PackageOpen"
+          tone="primary"
+          description="加工中"
+        />
+        <StatCard
+          title="今日交付"
+          :value="stats.dueToday"
+          :icon="CalendarCheck"
+          tone="primary"
+          :description="'逾期: ' + stats.overdue + ' 单'"
+        />
+        <StatCard
+          title="已完成"
+          :value="stats.completedToday"
+          :icon="CheckCircle2"
+          tone="success"
+          description="今日交付"
+        />
+        <StatCard
+          title="问题订单"
+          :value="stats.returned"
+          :icon="AlertTriangle"
+          tone="danger"
+          description="返工处理中"
+        />
+      </template>
+
+      <template v-else-if="currentRole === 'technician'">
+        <StatCard
+          title="我的任务"
+          :value="stats.total"
+          :icon="Wrench"
+          tone="primary"
+          description="分配给我"
+        />
+        <StatCard
+          title="待处理"
+          :value="stats.inProgress"
+          :icon="Clock"
+          tone="warning"
+          description="待开始/进行中"
+        />
+        <StatCard
+          title="今日需完成"
+          :value="stats.dueToday"
+          :icon="CalendarCheck"
+          tone="primary"
+          :description="'逾期: ' + stats.overdue + ' 单'"
+        />
+        <StatCard
+          title="返工任务"
+          :value="stats.returned"
+          :icon="RefreshCw"
+          tone="danger"
+          description="需特别注意"
+        />
+      </template>
+
+      <template v-else>
+        <StatCard
+          title="在制订单"
+          :value="stats.inProgress"
+          :icon="PackageOpen"
+          tone="primary"
+          description="总数 "
+          :trend="'+' + stats.total"
+        />
+        <StatCard
+          title="加急订单"
+          :value="stats.urgent"
+          :icon="AlertTriangle"
+          tone="warning"
+          description="需优先处理"
+        />
+        <StatCard
+          title="今日交付"
+          :value="stats.dueToday"
+          :icon="CalendarCheck"
+          tone="primary"
+          :description="'逾期: ' + stats.overdue + ' 单'"
+        />
+        <StatCard
+          title="返工订单"
+          :value="stats.returned"
+          :icon="RefreshCw"
+          tone="danger"
+          description="质量问题追踪"
+        />
+      </template>
     </div>
 
     <div class="mb-4 flex flex-wrap gap-2">
       <button
+        v-if="dashboardConfig.quickViews.includes('all')"
         class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all"
         :class="activeQuickView === 'all'
           ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
@@ -1010,9 +1108,10 @@ function formatDate(dateStr: string) {
         @click="setQuickView('all')"
       >
         <ClipboardList class="w-3.5 h-3.5" />
-        全部订单
+        {{ currentRole === 'clinic' ? '全部订单' : currentRole === 'technician' ? '全部任务' : '全部订单' }}
       </button>
       <button
+        v-if="dashboardConfig.quickViews.includes('today')"
         class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all"
         :class="activeQuickView === 'today'
           ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
@@ -1020,13 +1119,14 @@ function formatDate(dateStr: string) {
         @click="setQuickView('today')"
       >
         <CalendarCheck class="w-3.5 h-3.5" />
-        今日交付
+        {{ currentRole === 'technician' ? '今日任务' : '今日交付' }}
         <span class="ml-0.5 px-1 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[10px] font-bold"
           :class="activeQuickView === 'today' ? 'bg-white/20 text-white' : ''">
           {{ stats.dueToday }}
         </span>
       </button>
       <button
+        v-if="dashboardConfig.quickViews.includes('overdue')"
         class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all"
         :class="activeQuickView === 'overdue'
           ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
@@ -1034,13 +1134,14 @@ function formatDate(dateStr: string) {
         @click="setQuickView('overdue')"
       >
         <AlertTriangle class="w-3.5 h-3.5" />
-        即将逾期
+        {{ currentRole === 'technician' ? '逾期任务' : '即将逾期' }}
         <span class="ml-0.5 px-1 py-0.5 rounded text-[10px] font-bold"
           :class="activeQuickView === 'overdue' ? 'bg-white/20 text-white' : 'bg-rose-100 text-rose-700'">
           {{ stats.overdue }}
         </span>
       </button>
       <button
+        v-if="dashboardConfig.quickViews.includes('returning')"
         class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all"
         :class="activeQuickView === 'returning'
           ? 'bg-orange-600 text-white border-orange-600 shadow-sm'
@@ -1048,9 +1149,10 @@ function formatDate(dateStr: string) {
         @click="setQuickView('returning')"
       >
         <Wrench class="w-3.5 h-3.5" />
-        返工处理中
+        {{ currentRole === 'clinic' ? '问题订单' : '返工处理中' }}
       </button>
       <button
+        v-if="dashboardConfig.quickViews.includes('urgent')"
         class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all"
         :class="activeQuickView === 'urgent'
           ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
@@ -1061,6 +1163,7 @@ function formatDate(dateStr: string) {
         仅看加急单
       </button>
       <button
+        v-if="dashboardConfig.quickViews.includes('mytasks')"
         class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all"
         :class="activeQuickView === 'mytasks'
           ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
@@ -1068,10 +1171,10 @@ function formatDate(dateStr: string) {
         @click="setQuickView('mytasks')"
       >
         <Eye class="w-3.5 h-3.5" />
-        仅看我的任务
-        <template v-if="myTechnicianName">
+        {{ currentRole === 'technician' ? '我的任务' : '仅看我的任务' }}
+        <template v-if="currentTechnicianName">
           <span class="ml-0.5 text-[10px] opacity-80 truncate max-w-[60px]">
-            ({{ myTechnicianName }})
+            ({{ currentTechnicianName }})
           </span>
         </template>
       </button>
@@ -1202,7 +1305,7 @@ function formatDate(dateStr: string) {
             </select>
           </div>
 
-          <div>
+          <div v-if="canViewField('priority')">
             <label class="block text-xs font-medium text-slate-600 mb-1.5">
               优先级
             </label>
@@ -1221,7 +1324,7 @@ function formatDate(dateStr: string) {
             </select>
           </div>
 
-          <div>
+          <div v-if="canViewField('clinic') && currentRole === 'dispatcher'">
             <label class="block text-xs font-medium text-slate-600 mb-1.5">
               合作诊所
             </label>
@@ -1397,7 +1500,7 @@ function formatDate(dateStr: string) {
             />
           </div>
 
-          <div>
+          <div v-if="canViewField('responsibleTechnician') || currentRole === 'dispatcher'">
             <label class="block text-xs font-medium text-slate-600 mb-1.5">
               技师姓名
             </label>
@@ -1409,7 +1512,7 @@ function formatDate(dateStr: string) {
             />
           </div>
 
-          <div class="lg:col-span-2">
+          <div v-if="canViewField('totalAmount')" class="lg:col-span-2">
             <label class="block text-xs font-medium text-slate-600 mb-1.5">
               金额区间（元）
             </label>

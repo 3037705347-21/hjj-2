@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   LayoutDashboard,
@@ -15,65 +15,91 @@ import {
   Search,
   ChevronRight,
   ShieldCheck,
+  FileText,
+  Wrench,
+  UserCircle,
 } from 'lucide-vue-next'
+import { 
+  useRoles, 
+  provideRole, 
+  ROLE_LABELS, 
+  ROLE_COLORS, 
+  type Role,
+  currentRole,
+  currentTechnicianName,
+  setRole,
+  setTechnicianName,
+  canPerformAction,
+  canViewField,
+  canEditField,
+  permissions,
+  filterOrdersByRole,
+  getRoleSpecificStages,
+  getDashboardConfig,
+} from './composables/useRoles'
+
+provideRole()
 
 const route = useRoute()
 const router = useRouter()
 
 const sidebarOpen = ref(true)
+const currentUserInfo = ref({ name: '陈调度员', department: '调度中心' })
 
-const navItems = [
-  {
-    label: '订单看板',
-    icon: LayoutDashboard,
-    path: '/',
-    badge: null,
-  },
-  {
-    label: '订单列表',
-    icon: ClipboardList,
-    path: '/',
-    badge: null,
-  },
-  {
-    label: '诊所管理',
-    icon: Users,
-    path: '/',
-    badge: null,
-  },
-  {
-    label: '技师排程',
-    icon: Package,
-    path: '/',
-    badge: null,
-  },
-  {
-    label: '数据统计',
-    icon: BarChart3,
-    path: '/',
-    badge: null,
-  },
-  {
-    label: '系统设置',
-    icon: Settings,
-    path: '/',
-    badge: null,
-  },
-]
+onMounted(() => {
+  updateUserInfo()
+})
 
-const currentRole = ref<'clinic' | 'technician' | 'dispatcher'>('dispatcher')
-
-const roleLabels = {
-  clinic: '诊所端',
-  technician: '技师端',
-  dispatcher: '调度员',
+function updateUserInfo() {
+  const role = currentRole.value
+  if (role === 'clinic') {
+    currentUserInfo.value = { name: '王医生', department: '悦齿口腔诊所' }
+  } else if (role === 'technician') {
+    const techName = currentTechnicianName.value || '李技师'
+    currentUserInfo.value = { name: techName, department: '加工中心' }
+  } else {
+    currentUserInfo.value = { name: '陈调度员', department: '调度中心' }
+  }
 }
 
-const roleColors = {
-  clinic: 'bg-sky-100 text-sky-700 border-sky-200',
-  technician: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-  dispatcher: 'bg-violet-100 text-violet-700 border-violet-200',
+function handleRoleChange(role: Role) {
+  setRole(role)
+  updateUserInfo()
 }
+
+const navItems = computed(() => {
+  const role = currentRole.value
+  const items = []
+
+  if (role === 'clinic') {
+    items.push(
+      { label: '我的订单', icon: FileText, path: '/', badge: null },
+      { label: '新建订单', icon: ClipboardList, path: '/order/new', badge: null },
+      { label: '诊所信息', icon: Users, path: '/', badge: null },
+      { label: '系统设置', icon: Settings, path: '/', badge: null }
+    )
+  } else if (role === 'technician') {
+    items.push(
+      { label: '我的任务', icon: Wrench, path: '/', badge: null },
+      { label: '工艺备注', icon: FileText, path: '/', badge: null },
+      { label: '个人设置', icon: UserCircle, path: '/', badge: null }
+    )
+  } else {
+    items.push(
+      { label: '订单看板', icon: LayoutDashboard, path: '/', badge: null },
+      { label: '订单列表', icon: ClipboardList, path: '/', badge: null },
+      { label: '诊所管理', icon: Users, path: '/', badge: null },
+      { label: '技师排程', icon: Package, path: '/', badge: null },
+      { label: '数据统计', icon: BarChart3, path: '/', badge: null },
+      { label: '系统设置', icon: Settings, path: '/', badge: null }
+    )
+  }
+
+  return items
+})
+
+const roleLabels = ROLE_LABELS
+const roleColors = ROLE_COLORS
 
 const breadcrumbs = computed(() => {
   const items: { label: string; path?: string }[] = []
@@ -148,7 +174,8 @@ function toggleSidebar() {
             <div class="text-[10px] text-slate-500">当前角色</div>
             <div class="flex items-center gap-1.5 mt-0.5">
               <select
-                v-model="currentRole"
+                :value="currentRole"
+                @change="handleRoleChange(($event.target as HTMLSelectElement).value as Role)"
                 class="text-xs font-semibold bg-transparent text-slate-800 w-full focus:outline-none cursor-pointer"
               >
                 <option value="dispatcher">调度员</option>
@@ -300,14 +327,19 @@ function toggleSidebar() {
               class="hidden sm:block text-right"
             >
               <div class="text-sm font-medium text-slate-800 leading-tight">
-                陈调度员
+                {{ currentUserInfo.name }}
               </div>
-              <div class="text-[11px] text-slate-500">调度中心</div>
+              <div class="text-[11px] text-slate-500">{{ currentUserInfo.department }}</div>
             </div>
             <div
-              class="w-9 h-9 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-sm font-semibold text-slate-600 ring-2 ring-white shadow-sm"
+              class="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold text-white ring-2 ring-white shadow-sm"
+              :class="{
+                'bg-gradient-to-br from-sky-400 to-sky-600': currentRole === 'clinic',
+                'bg-gradient-to-br from-emerald-400 to-emerald-600': currentRole === 'technician',
+                'bg-gradient-to-br from-violet-400 to-violet-600': currentRole === 'dispatcher',
+              }"
             >
-              陈
+              {{ currentUserInfo.name.charAt(0) }}
             </div>
           </div>
         </div>

@@ -127,7 +127,7 @@ export const MockOrders: Order[] = [
     stageHistory: [
       { stage: 'received', startedAt: formatDate(daysAgo(0)), completedAt: formatDate(daysAgo(0)), technician: '调度员-陈', notes: '数字印模已接收' },
       { stage: 'model-scanning', startedAt: formatDate(daysAgo(0)), completedAt: formatDate(daysAgo(0)), technician: '王技师', notes: '扫描数据质量良好' },
-      { stage: 'wax-up', startedAt: formatDate(daysAgo(0)) },
+      { stage: 'wax-up', startedAt: formatDate(daysAgo(0)), technician: '张技师', notes: '按照设计稿制作蜡型，注意切端透明度' },
     ],
     returnRecords: [],
     attachments: [],
@@ -167,7 +167,7 @@ export const MockOrders: Order[] = [
       { stage: 'model-scanning', startedAt: formatDate(daysAgo(1)), completedAt: formatDate(daysAgo(1)), technician: '王技师' },
       { stage: 'wax-up', startedAt: formatDate(daysAgo(1)), completedAt: formatDate(daysAgo(0)), technician: '张技师' },
       { stage: 'casting', startedAt: formatDate(daysAgo(0)), completedAt: formatDate(daysAgo(0)), technician: '李师傅' },
-      { stage: 'porcelain', startedAt: formatDate(daysAgo(0)) },
+      { stage: 'porcelain', startedAt: formatDate(daysAgo(0)), technician: '刘技师', notes: '加急单，优先上瓷，注意颜色匹配' },
     ],
     returnRecords: [],
     attachments: [],

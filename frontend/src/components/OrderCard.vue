@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import type { Order } from '../types'
-import { RestorationTypeLabels, MaterialTypeLabels, ImpressionMethodLabels } from '../types'
+import { RestorationTypeLabels, MaterialTypeLabels, ImpressionMethodLabels, ProcessingStages } from '../types'
 import StatusBadge from './StatusBadge.vue'
 import PriorityBadge from './PriorityBadge.vue'
 import StageTimeline from './StageTimeline.vue'
+import { useRoles } from '../composables/useRoles'
 import {
   Calendar,
   Clock,
@@ -15,6 +17,10 @@ import {
   AlertCircle,
   Pencil,
   RefreshCw,
+  Wrench,
+  PackageCheck,
+  BadgeDollarSign,
+  UserCog,
 } from 'lucide-vue-next'
 
 const props = defineProps<{
@@ -26,16 +32,7 @@ const emit = defineEmits<{
 }>()
 
 const router = useRouter()
-
-function goToEdit(e: MouseEvent) {
-  e.stopPropagation()
-  router.push(`/order/${props.order.id}/edit`)
-}
-
-function goToCopy(e: MouseEvent) {
-  e.stopPropagation()
-  router.push({ path: `/order/${props.order.id}/edit`, query: { mode: 'copy' } })
-}
+const { currentRole, canViewField, canPerformAction, canEditField } = useRoles()
 
 const today = new Date()
 const delivery = new Date(props.order.deliveryDate)
@@ -67,6 +64,35 @@ const restorationTypes = Array.from(
     props.order.workItems.map((w) => RestorationTypeLabels[w.restorationType])
   )
 ).join('、')
+
+const currentTechnician = computed(() => {
+  const entry = props.order.stageHistory.find(
+    (s) => s.stage === props.order.currentStage && !s.completedAt
+  )
+  return entry?.technician || ''
+})
+
+const currentStageNotes = computed(() => {
+  const entry = props.order.stageHistory.find(
+    (s) => s.stage === props.order.currentStage && !s.completedAt
+  )
+  return entry?.notes || ''
+})
+
+const currentStageLabel = computed(() => {
+  const stage = ProcessingStages.find((s) => s.stage === props.order.currentStage)
+  return stage?.label || ''
+})
+
+function goToEdit(e: MouseEvent) {
+  e.stopPropagation()
+  router.push(`/order/${props.order.id}/edit`)
+}
+
+function goToCopy(e: MouseEvent) {
+  e.stopPropagation()
+  router.push({ path: `/order/${props.order.id}/edit`, query: { mode: 'copy' } })
+}
 </script>
 
 <template>
@@ -85,11 +111,12 @@ const restorationTypes = Array.from(
             >
               {{ order.orderNumber }}
             </span>
-            <PriorityBadge :priority="order.priority" />
+            <PriorityBadge v-if="canViewField('priority')" :priority="order.priority" />
             <StatusBadge :status="order.status" />
           </div>
           <div class="flex items-center gap-0.5 flex-shrink-0">
             <button
+              v-if="canPerformAction('edit')"
               class="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
               title="编辑订单"
               @click="goToEdit"
@@ -97,6 +124,7 @@ const restorationTypes = Array.from(
               <Pencil class="w-3.5 h-3.5" />
             </button>
             <button
+              v-if="canPerformAction('create')"
               class="p-1.5 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded transition-colors"
               title="复制订单"
               @click="goToCopy"
@@ -106,11 +134,11 @@ const restorationTypes = Array.from(
           </div>
         </div>
         <div class="flex items-center gap-3 text-xs text-slate-500">
-          <span class="flex items-center gap-1">
+          <span v-if="canViewField('clinic')" class="flex items-center gap-1">
             <Building2 class="w-3 h-3" />
             {{ order.clinic.name }}
           </span>
-          <span class="flex items-center gap-1">
+          <span v-if="canViewField('patient')" class="flex items-center gap-1">
             <User class="w-3 h-3" />
             {{ order.patient.anonymousCode }}
           </span>
@@ -138,6 +166,37 @@ const restorationTypes = Array.from(
         <div>
           <div class="text-xs text-slate-500 mb-1">材料</div>
           <div class="font-medium text-slate-700 truncate">{{ materials }}</div>
+        </div>
+      </div>
+
+      <div v-if="currentRole === 'technician' && currentStageNotes" class="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+        <div class="flex items-start gap-2">
+          <Wrench class="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+          <div class="min-w-0">
+            <div class="text-xs font-medium text-emerald-700 mb-1">工艺备注</div>
+            <div class="text-xs text-emerald-800">{{ currentStageNotes }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="currentRole === 'clinic' && order.currentStage === 'delivered'" class="mb-4 p-3 bg-sky-50 border border-sky-200 rounded-lg">
+        <div class="flex items-start gap-2">
+          <PackageCheck class="w-4 h-4 text-sky-600 flex-shrink-0 mt-0.5" />
+          <div class="min-w-0">
+            <div class="text-xs font-medium text-sky-700 mb-1">交付完成</div>
+            <div class="text-xs text-sky-800">订单已送达，请检查确认</div>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="currentRole === 'dispatcher' || currentRole === 'technician'" class="mb-4">
+        <div class="flex items-center gap-2 text-xs text-slate-500 mb-2">
+          <UserCog class="w-3.5 h-3.5" />
+          <span class="font-medium">当前阶段：{{ currentStageLabel }}</span>
+        </div>
+        <div v-if="currentTechnician" class="flex items-center gap-2 text-xs text-slate-600">
+          <span class="text-slate-500">责任人：</span>
+          <span class="font-medium text-slate-700">{{ currentTechnician }}</span>
         </div>
       </div>
 
@@ -175,9 +234,14 @@ const restorationTypes = Array.from(
             </template>
           </div>
 
-          <div class="flex items-center gap-1.5 text-slate-500">
+          <div v-if="canViewField('impressionMethod')" class="flex items-center gap-1.5 text-slate-500">
             <ClipboardList class="w-3.5 h-3.5" />
             <span>{{ ImpressionMethodLabels[order.impressionMethod] }}</span>
+          </div>
+
+          <div v-if="canViewField('totalAmount') && order.totalAmount !== undefined" class="flex items-center gap-1.5 text-slate-500">
+            <BadgeDollarSign class="w-3.5 h-3.5" />
+            <span class="font-medium text-slate-700">¥{{ order.totalAmount.toFixed(0) }}</span>
           </div>
         </div>
 

@@ -47,6 +47,7 @@ import CommunicationCard from '../components/CommunicationCard.vue'
 import ReworkFormDialog from '../components/ReworkFormDialog.vue'
 import ReworkDetailPanel from '../components/ReworkDetailPanel.vue'
 import { useOrders } from '../composables/useOrders'
+import { useRoles } from '../composables/useRoles'
 import type { StageHistoryEntry, ProcessingStage, ReturnRecord, ReworkStatus, ReworkSourceStage, ReworkProblemType, ReworkRootCause, ReworkResponsibility } from '../types'
 import {
   ProcessingStages,
@@ -82,6 +83,38 @@ const {
 
 const order = computed(() => getOrderById(String(route.params.id)))
 
+const {
+  currentRole,
+  currentTechnicianName,
+  canViewField,
+  canEditField,
+  canPerformAction,
+} = useRoles()
+
+const canViewClinicInfo = computed(() => canViewField('clinicInfo'))
+const canEditClinicInfo = computed(() => canEditField('clinicInfo'))
+const canViewPriority = computed(() => canViewField('priority'))
+const canEditPriority = computed(() => canEditField('priority'))
+const canViewTotalAmount = computed(() => canViewField('totalAmount'))
+const canEditInternalCost = computed(() => canEditField('internalCost'))
+const canViewResponsibleTechnician = computed(() => canViewField('responsibleTechnician'))
+const canEditResponsibleTechnician = computed(() => canEditField('responsibleTechnician'))
+
+const canCreateOrder = computed(() => canPerformAction('create'))
+const canEditOrder = computed(() => canPerformAction('edit'))
+const canCopyOrder = computed(() => canPerformAction('copy'))
+const canStartStageAction = computed(() => canPerformAction('startStage'))
+const canCompleteStageAction = computed(() => canPerformAction('completeStage'))
+const canInitiateReworkAction = computed(() => canPerformAction('initiateRework'))
+const canPauseAction = computed(() => canPerformAction('pause'))
+const canResumeAction = computed(() => canPerformAction('resume'))
+const canShipAction = computed(() => canPerformAction('ship'))
+const canDeliverAction = computed(() => canPerformAction('deliver'))
+const canEditPriorityAction = computed(() => canPerformAction('editPriority'))
+const canEditClinicInfoAction = computed(() => canPerformAction('editClinicInfo'))
+const canEditInternalCostAction = computed(() => canPerformAction('editInternalCost'))
+const canEditResponsibleTechnicianAction = computed(() => canPerformAction('editResponsibleTechnician'))
+
 const today = new Date()
 
 const daysToDelivery = computed(() => {
@@ -111,41 +144,67 @@ const currentStageIndex = computed(() => {
   return ProcessingStages.findIndex((s) => s.stage === order.value!.currentStage)
 })
 
-const canStart = computed(() => {
-  if (!order.value) return false
-  if (order.value.status === 'completed' || order.value.status === 'on-hold') return false
-  const currentEntry = order.value.stageHistory.find(
+const currentStageEntry = computed(() => {
+  if (!order.value) return undefined
+  return order.value.stageHistory.find(
     (e) => e.stage === order.value!.currentStage && !e.completedAt
   )
-  return !!currentEntry
+})
+
+const isCurrentStageAssignedToMe = computed(() => {
+  if (!currentStageEntry.value) return false
+  if (currentRole.value !== 'technician') return true
+  const entryTech = currentStageEntry.value.technician
+  if (!entryTech) return true
+  return entryTech === currentTechnicianName.value
+})
+
+const canStart = computed(() => {
+  if (!order.value) return false
+  if (!canStartStageAction.value) return false
+  if (order.value.status === 'completed' || order.value.status === 'on-hold') return false
+  if (!currentStageEntry.value) return false
+  if (currentStageEntry.value.startedAt) return false
+  if (!isCurrentStageAssignedToMe.value) return false
+  return true
 })
 
 const canComplete = computed(() => {
   if (!order.value) return false
+  if (!canCompleteStageAction.value) return false
   if (order.value.status === 'completed' || order.value.status === 'on-hold') return false
-  const currentEntry = order.value.stageHistory.find(
-    (e) => e.stage === order.value!.currentStage && !e.completedAt
-  )
-  return !!currentEntry && currentStageIndex.value < ProcessingStages.length - 1
+  if (!currentStageEntry.value) return false
+  if (!currentStageEntry.value.startedAt) return false
+  if (currentStageEntry.value.completedAt) return false
+  if (!isCurrentStageAssignedToMe.value) return false
+  return currentStageIndex.value < ProcessingStages.length - 1
 })
 
 const canReturn = computed(() => {
   if (!order.value) return false
+  if (!canInitiateReworkAction.value) return false
   if (order.value.status === 'completed') return false
+  if (!isCurrentStageAssignedToMe.value) return false
   return currentStageIndex.value > 0
 })
 
 const canPause = computed(() => {
   if (!order.value) return false
-  return order.value.status !== 'completed' && order.value.status !== 'on-hold'
+  if (!canPauseAction.value) return false
+  if (order.value.status === 'completed' || order.value.status === 'on-hold') return false
+  if (!isCurrentStageAssignedToMe.value) return false
+  return true
 })
 
 const canResume = computed(() => {
-  return order.value?.status === 'on-hold'
+  if (!order.value) return false
+  if (!canResumeAction.value) return false
+  return order.value.status === 'on-hold'
 })
 
 const canShip = computed(() => {
   if (!order.value) return false
+  if (!canShipAction.value) return false
   return (
     order.value.currentStage === 'quality-check' &&
     order.value.status !== 'completed'
@@ -154,6 +213,7 @@ const canShip = computed(() => {
 
 const canDeliver = computed(() => {
   if (!order.value) return false
+  if (!canDeliverAction.value) return false
   return (
     order.value.currentStage === 'shipped' &&
     order.value.status !== 'completed'
@@ -409,7 +469,7 @@ function goToNewOrder() {
             >
               {{ order.orderNumber }}
             </h1>
-            <PriorityBadge :priority="order.priority" />
+            <PriorityBadge v-if="canViewPriority" :priority="order.priority" />
             <StatusBadge :status="order.status" />
             <span
               v-if="order.returnRecords.length > 0"
@@ -422,11 +482,37 @@ function goToNewOrder() {
           <p class="text-sm text-slate-500">
             下单时间：{{ formatDate(order.createdAt) }}
           </p>
+
+          <div v-if="currentRole === 'clinic' && order.currentStage === 'delivered'" class="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+            <div class="flex items-center gap-2">
+              <PackageCheck class="w-5 h-5 text-emerald-600" />
+              <span class="text-sm font-medium text-emerald-800">交付完成：订单已送达，请检查确认</span>
+            </div>
+          </div>
+
+          <div v-if="currentRole === 'technician'" class="mt-3">
+            <div
+              v-for="(entry, idx) in order.stageHistory"
+              :key="idx"
+            >
+              <div
+                v-if="isCurrentStage(entry) && entry.notes"
+                class="p-3 bg-orange-50 border border-orange-200 rounded-lg"
+              >
+                <div class="flex items-center gap-2 mb-1">
+                  <FileText class="w-4 h-4 text-orange-600" />
+                  <span class="text-sm font-medium text-orange-800">当前阶段工艺备注</span>
+                </div>
+                <p class="text-sm text-orange-700">{{ entry.notes }}</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="flex flex-col items-stretch lg:items-end gap-4 w-full lg:w-auto">
           <div class="flex items-center gap-2 flex-wrap">
             <button
+              v-if="canCreateOrder"
               class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
               @click="goToNewOrder"
             >
@@ -434,6 +520,7 @@ function goToNewOrder() {
               新建
             </button>
             <button
+              v-if="canCopyOrder"
               class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-violet-700 bg-violet-50 border border-violet-200 rounded-lg hover:bg-violet-100 transition-colors"
               @click="handleCopyOrder"
             >
@@ -441,6 +528,7 @@ function goToNewOrder() {
               复制
             </button>
             <button
+              v-if="canEditOrder"
               class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
               @click="goToEdit"
             >
@@ -480,7 +568,7 @@ function goToNewOrder() {
     </div>
 
     <div
-        v-if="order.status !== 'completed'"
+        v-if="order.status !== 'completed' && (canStart || canComplete || canReturn || canPause || canResume || canShip || canDeliver)"
         class="bg-white rounded-xl border border-slate-200 overflow-hidden mb-6"
       >
         <div
@@ -675,7 +763,7 @@ function goToNewOrder() {
                     class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 mb-2"
                   >
                     <span
-                      v-if="entry.technician"
+                      v-if="canViewResponsibleTechnician && entry.technician"
                       class="flex items-center gap-1"
                     >
                       <Wrench class="w-3 h-3" />
@@ -810,7 +898,7 @@ function goToNewOrder() {
                   +{{ record.relatedTeeth.length - 5 }}
                 </span>
                 <span
-                  v-if="record.chargeable"
+                  v-if="canViewTotalAmount && record.chargeable"
                   class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200"
                 >
                   ¥{{ record.chargeAmount?.toLocaleString() || '0' }}
@@ -846,7 +934,7 @@ function goToNewOrder() {
                   :class="record.status === 'closed' ? 'border-slate-200' : 'border-rose-100'"
                 >
                   <div class="flex items-center gap-4 flex-wrap">
-                    <span v-if="record.responsibleTechnician" class="inline-flex items-center gap-1">
+                    <span v-if="canViewResponsibleTechnician && record.responsibleTechnician" class="inline-flex items-center gap-1">
                       <User class="w-3 h-3" />
                       责任技师：{{ record.responsibleTechnician }}
                     </span>
@@ -1003,18 +1091,24 @@ function goToNewOrder() {
           </div>
         </div>
 
-        <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div v-if="canViewClinicInfo" class="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div
-            class="px-5 py-4 border-b border-slate-100 flex items-center gap-2"
+            class="px-5 py-4 border-b border-slate-100 flex items-center justify-between"
           >
-            <div
-              class="w-8 h-8 rounded-lg bg-sky-50 border border-sky-100 flex items-center justify-center"
-            >
-              <Building2 class="w-4 h-4 text-sky-600" />
+            <div class="flex items-center gap-2">
+              <div
+                class="w-8 h-8 rounded-lg bg-sky-50 border border-sky-100 flex items-center justify-center"
+              >
+                <Building2 class="w-4 h-4 text-sky-600" />
+              </div>
+              <h2 class="text-base font-semibold text-slate-800">
+                诊所信息
+              </h2>
             </div>
-            <h2 class="text-base font-semibold text-slate-800">
-              诊所信息
-            </h2>
+            <span v-if="!canEditClinicInfo" class="text-[10px] text-slate-400">
+              <Eye class="w-3 h-3 inline mr-1" />
+              仅查看
+            </span>
           </div>
           <div class="p-5 space-y-4">
             <div>
@@ -1116,16 +1210,22 @@ function goToNewOrder() {
 
         <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div
-            class="px-5 py-4 border-b border-slate-100 flex items-center gap-2"
+            class="px-5 py-4 border-b border-slate-100 flex items-center justify-between"
           >
-            <div
-              class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center"
-            >
-              <Mail class="w-4 h-4 text-slate-600" />
+            <div class="flex items-center gap-2">
+              <div
+                class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center"
+              >
+                <Mail class="w-4 h-4 text-slate-600" />
+              </div>
+              <h2 class="text-base font-semibold text-slate-800">
+                取模与费用
+              </h2>
             </div>
-            <h2 class="text-base font-semibold text-slate-800">
-              取模与费用
-            </h2>
+            <span v-if="!canEditInternalCost" class="text-[10px] text-slate-400">
+              <Eye class="w-3 h-3 inline mr-1" />
+              仅查看
+            </span>
           </div>
           <div class="p-5 space-y-4">
             <div
@@ -1145,7 +1245,7 @@ function goToNewOrder() {
               </span>
             </div>
             <div
-              v-if="order.totalAmount"
+              v-if="canViewTotalAmount && order.totalAmount"
               class="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-100"
             >
               <div class="flex items-center gap-2 text-slate-700">
