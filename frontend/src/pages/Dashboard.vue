@@ -14,10 +14,10 @@ import {
   X,
   Filter,
   PackageOpen,
+  Plus,
 } from 'lucide-vue-next'
 import StatCard from '../components/StatCard.vue'
 import OrderCard from '../components/OrderCard.vue'
-import { MockOrders } from '../mock/orders'
 import type {
   Order,
   OrderStatus,
@@ -29,10 +29,12 @@ import {
   PriorityLabels,
   ProcessingStages,
 } from '../types'
-import { MockClinics } from '../mock/orders'
+import { useOrders } from '../composables/useOrders'
 import { cn } from '../lib/utils'
 
 const router = useRouter()
+const { orders: allOrders, getClinics } = useOrders()
+const MockClinics = getClinics()
 
 const searchQuery = ref('')
 const showFilters = ref(false)
@@ -44,32 +46,32 @@ const stageFilter = ref<ProcessingStage | 'all'>('all')
 const today = new Date()
 
 const stats = computed(() => {
-  const total = MockOrders.length
-  const inProgress = MockOrders.filter(
+  const total = allOrders.value.length
+  const inProgress = allOrders.value.filter(
     (o) => o.status === 'in-progress' || o.status === 'pending'
   ).length
-  const urgent = MockOrders.filter(
+  const urgent = allOrders.value.filter(
     (o) =>
       (o.priority === 'urgent' || o.priority === 'stat') &&
       o.status !== 'completed'
   ).length
-  const dueToday = MockOrders.filter((o) => {
+  const dueToday = allOrders.value.filter((o) => {
     const d = new Date(o.deliveryDate)
     return (
       d.toDateString() === today.toDateString() && o.status !== 'completed'
     )
   }).length
-  const overdue = MockOrders.filter((o) => {
+  const overdue = allOrders.value.filter((o) => {
     const d = new Date(o.deliveryDate)
     return d < today && o.status !== 'completed'
   }).length
-  const completedToday = MockOrders.filter((o) => {
+  const completedToday = allOrders.value.filter((o) => {
     const delivered = o.stageHistory.find((s) => s.stage === 'delivered')
     if (!delivered?.completedAt) return false
     const d = new Date(delivered.completedAt)
     return d.toDateString() === today.toDateString()
   }).length
-  const returned = MockOrders.filter((o) => o.returnRecords.length > 0).length
+  const returned = allOrders.value.filter((o) => o.returnRecords.length > 0).length
 
   return {
     total,
@@ -83,7 +85,7 @@ const stats = computed(() => {
 })
 
 const filteredOrders = computed(() => {
-  return MockOrders.filter((order) => {
+  return allOrders.value.filter((order) => {
     if (searchQuery.value.trim()) {
       const q = searchQuery.value.toLowerCase()
       const match =
@@ -132,6 +134,10 @@ function goToDetail(order: Order) {
   router.push(`/order/${order.id}`)
 }
 
+function goToNewOrder() {
+  router.push('/order/new')
+}
+
 function refreshData() {
   searchQuery.value = ''
   clearFilters()
@@ -150,13 +156,22 @@ function refreshData() {
             监控全部加工订单进度，确保按时交付
           </p>
         </div>
-        <button
-          class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-          @click="refreshData"
-        >
-          <RefreshCw class="w-4 h-4" />
-          刷新
-        </button>
+        <div class="flex items-center gap-2">
+          <button
+            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+            @click="goToNewOrder"
+          >
+            <Plus class="w-4 h-4" />
+            新建订单
+          </button>
+          <button
+            class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+            @click="refreshData"
+          >
+            <RefreshCw class="w-4 h-4" />
+            刷新
+          </button>
+        </div>
       </div>
     </div>
 

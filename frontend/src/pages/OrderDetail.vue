@@ -21,12 +21,14 @@ import {
   BadgeDollarSign,
   ChevronRight,
   RefreshCw,
+  Pencil,
+  Plus,
 } from 'lucide-vue-next'
 import StatusBadge from '../components/StatusBadge.vue'
 import PriorityBadge from '../components/PriorityBadge.vue'
 import ToothChart from '../components/ToothChart.vue'
 import StageTimeline from '../components/StageTimeline.vue'
-import { getOrderById } from '../mock/orders'
+import { useOrders } from '../composables/useOrders'
 import type { StageHistoryEntry } from '../types'
 import {
   ProcessingStages,
@@ -37,6 +39,7 @@ import {
 
 const route = useRoute()
 const router = useRouter()
+const { getOrderById, copyOrder } = useOrders()
 
 const order = computed(() => getOrderById(String(route.params.id)))
 
@@ -97,6 +100,23 @@ function isCurrentStage(entry: StageHistoryEntry) {
 function goBack() {
   router.back()
 }
+
+function goToEdit() {
+  if (!order.value) return
+  router.push(`/order/${order.value.id}/edit`)
+}
+
+function handleCopyOrder() {
+  if (!order.value) return
+  const newOrder = copyOrder(order.value.id)
+  if (newOrder) {
+    router.push(`/order/${newOrder.id}`)
+  }
+}
+
+function goToNewOrder() {
+  router.push('/order/new')
+}
 </script>
 
 <template>
@@ -111,7 +131,7 @@ function goBack() {
       </button>
 
       <div
-        class="flex flex-col lg:flex-row lg:items-start justify-between gap-4"
+        class="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-4"
       >
         <div>
           <div class="flex flex-wrap items-center gap-3 mb-2">
@@ -135,30 +155,56 @@ function goBack() {
           </p>
         </div>
 
-        <div
-          class="px-4 py-3 rounded-xl border"
-          :class="deliveryStatusClass"
-        >
-          <div class="flex items-center gap-2 text-xs font-medium mb-1">
-            <Calendar class="w-3.5 h-3.5" />
-            交付日期
+        <div class="flex flex-col items-stretch lg:items-end gap-4 w-full lg:w-auto">
+          <div class="flex items-center gap-2 flex-wrap">
+            <button
+              class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+              @click="goToNewOrder"
+            >
+              <Plus class="w-4 h-4" />
+              新建
+            </button>
+            <button
+              class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-violet-700 bg-violet-50 border border-violet-200 rounded-lg hover:bg-violet-100 transition-colors"
+              @click="handleCopyOrder"
+            >
+              <RefreshCw class="w-4 h-4" />
+              复制
+            </button>
+            <button
+              class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+              @click="goToEdit"
+            >
+              <Pencil class="w-4 h-4" />
+              编辑
+            </button>
           </div>
-          <div class="text-lg font-bold tracking-tight">
-            {{ formatShortDate(order.deliveryDate) }}
-          </div>
+
           <div
-            v-if="order.status !== 'completed' && order.currentStage !== 'delivered'"
-            class="text-xs mt-0.5"
+            class="px-4 py-3 rounded-xl border w-full lg:w-56"
+            :class="deliveryStatusClass"
           >
-            <template v-if="daysToDelivery < 0">
-              已逾期 {{ Math.abs(daysToDelivery) }} 天
-            </template>
-            <template v-else-if="daysToDelivery === 0">
-              今日需交付
-            </template>
-            <template v-else>
-              剩余 {{ daysToDelivery }} 天
-            </template>
+            <div class="flex items-center gap-2 text-xs font-medium mb-1">
+              <Calendar class="w-3.5 h-3.5" />
+              交付日期
+            </div>
+            <div class="text-lg font-bold tracking-tight">
+              {{ formatShortDate(order.deliveryDate) }}
+            </div>
+            <div
+              v-if="order.status !== 'completed' && order.currentStage !== 'delivered'"
+              class="text-xs mt-0.5"
+            >
+              <template v-if="daysToDelivery < 0">
+                已逾期 {{ Math.abs(daysToDelivery) }} 天
+              </template>
+              <template v-else-if="daysToDelivery === 0">
+                今日需交付
+              </template>
+              <template v-else>
+                剩余 {{ daysToDelivery }} 天
+              </template>
+            </div>
           </div>
         </div>
       </div>

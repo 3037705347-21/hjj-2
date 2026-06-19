@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
 import type { Order } from '../types'
 import { RestorationTypeLabels, MaterialTypeLabels, ImpressionMethodLabels } from '../types'
 import StatusBadge from './StatusBadge.vue'
@@ -12,6 +13,8 @@ import {
   ClipboardList,
   ChevronRight,
   AlertCircle,
+  Pencil,
+  RefreshCw,
 } from 'lucide-vue-next'
 
 const props = defineProps<{
@@ -21,6 +24,18 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'view-detail'): void
 }>()
+
+const router = useRouter()
+
+function goToEdit(e: MouseEvent) {
+  e.stopPropagation()
+  router.push(`/order/${props.order.id}/edit`)
+}
+
+function goToCopy(e: MouseEvent) {
+  e.stopPropagation()
+  router.push({ path: `/order/${props.order.id}/edit`, query: { mode: 'copy' } })
+}
 
 const today = new Date()
 const delivery = new Date(props.order.deliveryDate)
@@ -63,14 +78,32 @@ const restorationTypes = Array.from(
       class="px-4 py-3 border-b border-slate-100 bg-slate-50/50 flex items-start justify-between gap-3"
     >
       <div class="min-w-0 flex-1">
-        <div class="flex items-center gap-2 mb-1">
-          <span
-            class="text-sm font-bold tracking-tight text-slate-800 font-mono"
-          >
-            {{ order.orderNumber }}
-          </span>
-          <PriorityBadge :priority="order.priority" />
-          <StatusBadge :status="order.status" />
+        <div class="flex items-start justify-between gap-2 mb-1">
+          <div class="flex items-center gap-2 min-w-0 flex-wrap">
+            <span
+              class="text-sm font-bold tracking-tight text-slate-800 font-mono"
+            >
+              {{ order.orderNumber }}
+            </span>
+            <PriorityBadge :priority="order.priority" />
+            <StatusBadge :status="order.status" />
+          </div>
+          <div class="flex items-center gap-0.5 flex-shrink-0">
+            <button
+              class="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+              title="编辑订单"
+              @click="goToEdit"
+            >
+              <Pencil class="w-3.5 h-3.5" />
+            </button>
+            <button
+              class="p-1.5 text-slate-400 hover:text-violet-600 hover:bg-violet-50 rounded transition-colors"
+              title="复制订单"
+              @click="goToCopy"
+            >
+              <RefreshCw class="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
         <div class="flex items-center gap-3 text-xs text-slate-500">
           <span class="flex items-center gap-1">
