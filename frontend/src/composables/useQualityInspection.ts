@@ -97,7 +97,7 @@ watch(
 )
 
 export function useQualityInspection() {
-  const { orders, initiateRework, addSystemCommunication } = useOrders()
+  const { orders, initiateRework, addSystemCommunication, closeRework } = useOrders()
 
   const allInspections = computed(() =>
     [...inspections.value].sort(
@@ -426,6 +426,60 @@ export function useQualityInspection() {
       inspection.defects[defectIdx].recheckNote = recheckNote
       inspection.defects[defectIdx].recheckBy = recheckBy
       inspection.defects[defectIdx].recheckAt = now
+
+      if (inspection.defects[defectIdx].reworkRecordId) {
+        closeRework(
+          inspection.orderId,
+          inspection.defects[defectIdx].reworkRecordId!,
+          recheckBy,
+          recheckResult,
+          recheckNote,
+          recheckNote,
+          0
+        )
+      }
+    }
+
+    const allDefectsChecked = inspection.defects.length > 0
+      && inspection.defects.every((d) => d.recheckResult)
+    const allDefectsPassed = allDefectsChecked
+      && inspection.defects.every((d) => d.recheckResult === 'pass')
+    const hasAnyFailDefect = inspection.defects.some((d) => d.recheckResult === 'fail')
+
+    if (allDefectsPassed) {
+      inspection.itemResults.forEach((item) => {
+        if (item.result === 'pending' || item.result === 'fail' || item.result === 'recheck-fail') {
+          item.result = 'recheck-pass'
+          item.checkedBy = recheckBy
+          item.checkedAt = now
+          item.remark = recheckNote || item.remark
+        }
+      })
+    }
+
+    if (allDefectsChecked) {
+      if (allDefectsPassed) {
+        inspection.status = 'in-progress'
+        inspection.overallResult = undefined
+        inspection.completedAt = undefined
+        addSystemCommunication(
+          inspection.orderId,
+          `【全部复检通过】所有不合格项已整改并通过复检，可继续完成质检`,
+          inspection.processingStage
+        )
+      } else if (hasAnyFailDefect) {
+        inspection.status = 'rejected'
+        inspection.reworkCount += 1
+        addSystemCommunication(
+          inspection.orderId,
+          `【复检不通过】仍存在不合格项，需继续整改`,
+          inspection.processingStage
+        )
+      }
+    } else {
+      if (hasAnyFailDefect) {
+        inspection.status = 'rejected'
+      }
     }
 
     inspection.updatedAt = now

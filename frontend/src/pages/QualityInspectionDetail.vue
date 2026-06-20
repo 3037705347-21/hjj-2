@@ -166,9 +166,13 @@ const overallResult = computed<QualityCheckResult>(() => {
   const hasFail = inspection.value.itemResults.some(
     (i) => i.result === 'fail' || i.result === 'recheck-fail'
   )
+  const hasRecheckPass = inspection.value.itemResults.some(
+    (i) => i.result === 'recheck-pass'
+  )
   const allChecked = inspection.value.itemResults.every((i) => i.result !== 'pending')
   if (!allChecked) return 'pending'
-  return hasFail ? 'fail' : 'pass'
+  if (hasFail) return hasRecheckPass ? 'recheck-fail' : 'fail'
+  return hasRecheckPass ? 'recheck-pass' : 'pass'
 })
 
 function formatDate(dateStr: string) {
@@ -334,7 +338,27 @@ function handleRecheckSubmit() {
     recheckBy.value.trim() || '质检员'
   )
   if (updated) {
-    inspection.value = updated
+    inspection.value = { ...updated }
+    if (recheckResult.value === 'pass' && updated.status === 'in-progress') {
+      const allItemsRecheckPass = updated.itemResults.every(
+        (item) => item.result === 'pass' || item.result === 'recheck-pass'
+      )
+      if (allItemsRecheckPass) {
+        setTimeout(() => {
+          if (inspection.value) {
+            const finalResult = overallResult.value
+            const finalUpdated = completeInspection(
+              inspection.value.id,
+              finalResult,
+              formNotes.value.trim() || undefined
+            )
+            if (finalUpdated) {
+              inspection.value = { ...finalUpdated }
+            }
+          }
+        }, 300)
+      }
+    }
   }
   recheckDefectId.value = null
 }

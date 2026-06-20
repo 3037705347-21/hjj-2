@@ -60,7 +60,19 @@ const searchKeyword = ref('')
 const filterStatus = ref<QualityInspectionStatus | ''>('')
 const filterStage = ref<QualityInspectionStage | ''>('')
 const filterProcessingStage = ref<ProcessingStage | ''>('')
+const filterProblemType = ref<ReworkProblemType | ''>('')
+const filterTechnician = ref('')
 const dateRange = ref({ start: '', end: '' })
+
+const allTechnicians = computed(() => {
+  const set = new Set<string>()
+  inspections.value.forEach((i) => {
+    i.defects.forEach((d) => {
+      if (d.responsibleTechnician) set.add(d.responsibleTechnician)
+    })
+  })
+  return Array.from(set).sort()
+})
 
 const stats = computed(() => getQualityStats(getStatsFilter()))
 
@@ -71,6 +83,8 @@ const getStatsFilter = (): QualityStatsFilter => {
   if (dateRange.value.start) f.startDate = dateRange.value.start
   if (dateRange.value.end) f.endDate = dateRange.value.end
   if (filterStage.value) f.inspectionStage = filterStage.value
+  if (filterProblemType.value) f.problemType = filterProblemType.value
+  if (filterTechnician.value) f.responsibleTechnician = filterTechnician.value
   return f
 }
 
@@ -148,6 +162,8 @@ function clearFilters() {
   filterStatus.value = ''
   filterStage.value = ''
   filterProcessingStage.value = ''
+  filterProblemType.value = ''
+  filterTechnician.value = ''
   dateRange.value = { start: '', end: '' }
 }
 
@@ -327,6 +343,66 @@ function getMaxTechCount(items: { technician: string; count: number; percentage:
               <span class="text-slate-600">不合格</span>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="showStats" class="bg-white rounded-xl border border-slate-200 overflow-hidden mb-6">
+      <div class="px-5 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div class="flex items-center gap-2">
+          <Filter class="w-4 h-4 text-slate-500" />
+          <span class="text-xs font-semibold text-slate-700">统计筛选条件</span>
+          <span v-if="filterProblemType || filterTechnician || dateRange.start || dateRange.end" class="text-[10px] text-blue-600 font-medium">
+            (已应用筛选)
+          </span>
+        </div>
+        <button
+          v-if="filterProblemType || filterTechnician || dateRange.start || dateRange.end"
+          class="text-[11px] text-slate-500 hover:text-slate-700 inline-flex items-center gap-1"
+          @click="filterProblemType = ''; filterTechnician = ''; dateRange = { start: '', end: '' }"
+        >
+          <X class="w-3 h-3" />
+          重置统计筛选
+        </button>
+      </div>
+      <div class="px-5 py-3 flex items-center gap-3 flex-wrap">
+        <div class="flex items-center gap-1.5">
+          <span class="text-xs text-slate-500">问题类型：</span>
+          <select
+            v-model="filterProblemType"
+            class="px-2.5 py-1.5 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+          >
+            <option value="">全部类型</option>
+            <option v-for="(label, key) in ReworkProblemTypeLabels" :key="key" :value="key">
+              {{ label }}
+            </option>
+          </select>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="text-xs text-slate-500">责任技师：</span>
+          <select
+            v-model="filterTechnician"
+            class="px-2.5 py-1.5 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white min-w-[120px]"
+          >
+            <option value="">全部技师</option>
+            <option v-for="tech in allTechnicians" :key="tech" :value="tech">
+              {{ tech }}
+            </option>
+          </select>
+        </div>
+        <div class="flex items-center gap-1.5 ml-auto">
+          <Calendar class="w-3.5 h-3.5 text-slate-400" />
+          <input
+            v-model="dateRange.start"
+            type="date"
+            class="bg-transparent text-xs px-1.5 py-1 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <span class="text-slate-400 text-xs">至</span>
+          <input
+            v-model="dateRange.end"
+            type="date"
+            class="bg-transparent text-xs px-1.5 py-1 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
         </div>
       </div>
     </div>
