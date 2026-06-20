@@ -452,6 +452,7 @@ export interface Order {
   totalAmount?: number
   attachments: Attachment[]
   communications: Communication[]
+  qualityInspections?: QualityInspection[]
 }
 
 export interface DashboardStats {
@@ -999,5 +1000,194 @@ export interface PriceCalculationResult {
   reworkCharge: number
   subtotal: number
   priceRuleId?: string
+}
+
+export type QualityInspectionStage =
+  | 'stage-check'
+  | 'final-check'
+
+export const QualityInspectionStageLabels: Record<QualityInspectionStage, string> = {
+  'stage-check': '阶段质检',
+  'final-check': '出厂终检',
+}
+
+export const QualityInspectionStageColors: Record<QualityInspectionStage, string> = {
+  'stage-check': 'bg-blue-50 text-blue-700 border-blue-200',
+  'final-check': 'bg-violet-50 text-violet-700 border-violet-200',
+}
+
+export type QualityCheckResult =
+  | 'pending'
+  | 'pass'
+  | 'fail'
+  | 'recheck-pass'
+  | 'recheck-fail'
+
+export const QualityCheckResultLabels: Record<QualityCheckResult, string> = {
+  'pending': '待检查',
+  'pass': '合格',
+  'fail': '不合格',
+  'recheck-pass': '复检合格',
+  'recheck-fail': '复检不合格',
+}
+
+export const QualityCheckResultColors: Record<QualityCheckResult, string> = {
+  'pending': 'bg-slate-50 text-slate-600 border-slate-200',
+  'pass': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'fail': 'bg-rose-50 text-rose-700 border-rose-200',
+  'recheck-pass': 'bg-teal-50 text-teal-700 border-teal-200',
+  'recheck-fail': 'bg-orange-50 text-orange-700 border-orange-200',
+}
+
+export interface QualityCheckItem {
+  id: string
+  name: string
+  category: string
+  description?: string
+  isRequired: boolean
+  sortOrder: number
+  applicableStages: ProcessingStage[]
+}
+
+export const QualityCheckItemCategoryLabels: Record<string, string> = {
+  'edge-fit': '边缘密合',
+  'color': '颜色匹配',
+  'occlusion': '咬合关系',
+  'shape': '形态外观',
+  'material': '材料质量',
+  'design': '设计精度',
+  'surface': '表面处理',
+  'other': '其他检查',
+}
+
+export interface QualityInspectionItemResult {
+  checkItemId: string
+  checkItemName: string
+  category: string
+  result: QualityCheckResult
+  remark?: string
+  defectPhotos?: string[]
+  checkedBy?: string
+  checkedAt?: string
+}
+
+export type QualityInspectionStatus =
+  | 'pending'
+  | 'in-progress'
+  | 'completed'
+  | 'rejected'
+  | 'reworking'
+  | 'rechecking'
+  | 'released'
+
+export const QualityInspectionStatusLabels: Record<QualityInspectionStatus, string> = {
+  'pending': '待质检',
+  'in-progress': '质检中',
+  'completed': '质检完成',
+  'rejected': '质检不合格',
+  'reworking': '整改中',
+  'rechecking': '复检中',
+  'released': '已放行',
+}
+
+export const QualityInspectionStatusColors: Record<QualityInspectionStatus, string> = {
+  'pending': 'bg-slate-50 text-slate-600 border-slate-200',
+  'in-progress': 'bg-blue-50 text-blue-700 border-blue-200',
+  'completed': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'rejected': 'bg-rose-50 text-rose-700 border-rose-200',
+  'reworking': 'bg-orange-50 text-orange-700 border-orange-200',
+  'rechecking': 'bg-amber-50 text-amber-700 border-amber-200',
+  'released': 'bg-teal-50 text-teal-700 border-teal-200',
+}
+
+export interface QualityDefectRecord {
+  id: string
+  inspectionId: string
+  orderId: string
+  orderNumber: string
+  problemType: ReworkProblemType
+  problemDescription: string
+  defectCategory: string
+  severity: 'minor' | 'major' | 'critical'
+  relatedTeeth: string[]
+  responsibleTechnician?: string
+  responsibleDepartment?: ReworkResponsibility
+  rootCause: ReworkRootCause
+  correctiveAction: string
+  reworkDeadline: string
+  reworkRecordId?: string
+  recheckResult?: 'pass' | 'fail'
+  recheckNote?: string
+  recheckBy?: string
+  recheckAt?: string
+  registeredBy: string
+  registeredAt: string
+  photos?: string[]
+}
+
+export const DefectSeverityLabels: Record<'minor' | 'major' | 'critical', string> = {
+  'minor': '轻微',
+  'major': '一般',
+  'critical': '严重',
+}
+
+export const DefectSeverityColors: Record<'minor' | 'major' | 'critical', string> = {
+  'minor': 'bg-amber-50 text-amber-700 border-amber-200',
+  'major': 'bg-orange-50 text-orange-700 border-orange-200',
+  'critical': 'bg-rose-50 text-rose-700 border-rose-200',
+}
+
+export interface QualityInspection {
+  id: string
+  orderId: string
+  orderNumber: string
+  clinicName: string
+  inspectionStage: QualityInspectionStage
+  processingStage: ProcessingStage
+  status: QualityInspectionStatus
+  itemResults: QualityInspectionItemResult[]
+  overallResult?: QualityCheckResult
+  inspector?: string
+  startedAt?: string
+  completedAt?: string
+  releasedAt?: string
+  releasedBy?: string
+  defects: QualityDefectRecord[]
+  reworkCount: number
+  notes?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface QualityInspectionRule {
+  id: string
+  name: string
+  applicableStage: ProcessingStage
+  inspectionStage: QualityInspectionStage
+  checkItems: string[]
+  isEnabled: boolean
+  autoGenerate: boolean
+  description?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface QualityStatsFilter {
+  startDate?: string
+  endDate?: string
+  problemType?: ReworkProblemType
+  responsibleTechnician?: string
+  inspectionStage?: QualityInspectionStage
+}
+
+export interface QualityStatsResult {
+  totalInspections: number
+  passRate: number
+  failCount: number
+  reworkCount: number
+  defectDistribution: { type: ReworkProblemType; label: string; count: number; percentage: number }[]
+  technicianDistribution: { technician: string; count: number; percentage: number }[]
+  stageDistribution: { stage: ProcessingStage; label: string; count: number; percentage: number }[]
+  trendData: { date: string; total: number; pass: number; fail: number }[]
 }
 

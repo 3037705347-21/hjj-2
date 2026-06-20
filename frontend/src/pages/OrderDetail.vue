@@ -44,6 +44,9 @@ import {
   Package,
   Send,
   Calculator,
+  ShieldCheck,
+  ClipboardCheck,
+  AlertOctagon,
 } from 'lucide-vue-next'
 import StatusBadge from '../components/StatusBadge.vue'
 import ToothChart from '../components/ToothChart.vue'
@@ -58,6 +61,7 @@ import { useOrders } from '../composables/useOrders'
 import { useRoles } from '../composables/useRoles'
 import { useTechnicians } from '../composables/useTechnicians'
 import { useLogistics } from '../composables/useLogistics'
+import { useQualityInspection } from '../composables/useQualityInspection'
 import type { StageHistoryEntry, ProcessingStage, ReturnRecord, ReworkStatus, ReworkSourceStage, ReworkProblemType, ReworkRootCause, ReworkResponsibility, TaskAssignment, TaskPriority } from '../types'
 import {
   ProcessingStages,
@@ -125,6 +129,13 @@ const {
 } = useTechnicians()
 
 const { getLogisticsByOrderId } = useLogistics()
+
+const { getInspectionsByOrder } = useQualityInspection()
+
+const orderQualityInspections = computed(() => {
+  if (!order.value) return []
+  return getInspectionsByOrder(order.value.id)
+})
 
 const orderLogistics = computed<LogisticsRecord[]>(() => {
   if (!order.value) return []
@@ -1375,6 +1386,168 @@ function goToQuote() {
               <AlertTriangle class="w-3.5 h-3.5" />
               发起首次返工
             </button>
+          </div>
+        </div>
+
+        <div
+          class="bg-white rounded-xl border border-slate-200 overflow-hidden"
+        >
+          <div
+            class="px-5 py-4 border-b border-slate-100 flex items-center justify-between"
+          >
+            <div class="flex items-center gap-2">
+              <div
+                class="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center"
+              >
+                <ShieldCheck class="w-4 h-4 text-emerald-600" />
+              </div>
+              <div>
+                <h2 class="text-base font-semibold text-slate-800">
+                  质检历史
+                </h2>
+                <p class="text-xs text-slate-500">
+                  各阶段质检记录、不合格问题与复检结果
+                </p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-slate-500">
+                共 {{ orderQualityInspections.length }} 次质检
+              </span>
+              <button
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
+                @click="router.push('/quality')"
+              >
+                <ClipboardCheck class="w-3.5 h-3.5" />
+                质检中心
+              </button>
+            </div>
+          </div>
+          <div v-if="orderQualityInspections.length > 0" class="divide-y divide-slate-100">
+            <div
+              v-for="inspection in orderQualityInspections"
+              :key="inspection.id"
+              class="px-5 py-4 hover:bg-slate-50/50 transition-colors"
+            >
+              <div class="flex items-start justify-between gap-4">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 flex-wrap mb-2">
+                    <span
+                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border"
+                      :class="
+                        inspection.inspectionStage === 'final-check'
+                          ? 'bg-amber-50 text-amber-700 border-amber-200'
+                          : 'bg-blue-50 text-blue-700 border-blue-200'
+                      "
+                    >
+                      <ClipboardCheck class="w-3 h-3" />
+                      {{ inspection.inspectionStage === 'final-check' ? '出厂终检' : '阶段质检' }}
+                    </span>
+                    <span class="text-sm font-semibold text-slate-800">
+                      {{ ProcessingStages.find(s => s.stage === inspection.processingStage)?.label || inspection.processingStage }}
+                    </span>
+                    <span
+                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium border"
+                      :class="{
+                        'bg-slate-100 text-slate-600 border-slate-200': inspection.status === 'pending',
+                        'bg-blue-50 text-blue-700 border-blue-200': inspection.status === 'in-progress',
+                        'bg-emerald-50 text-emerald-700 border-emerald-200': inspection.status === 'completed' || inspection.status === 'released',
+                        'bg-rose-50 text-rose-700 border-rose-200': inspection.status === 'rejected',
+                        'bg-amber-50 text-amber-700 border-amber-200': inspection.status === 'reworking',
+                        'bg-violet-50 text-violet-700 border-violet-200': inspection.status === 'rechecking',
+                      }"
+                    >
+                      {{
+                        inspection.status === 'pending' ? '待质检' :
+                        inspection.status === 'in-progress' ? '质检中' :
+                        inspection.status === 'completed' ? '已完成' :
+                        inspection.status === 'rejected' ? '不合格' :
+                        inspection.status === 'reworking' ? '整改中' :
+                        inspection.status === 'rechecking' ? '复检中' :
+                        inspection.status === 'released' ? '已放行' : inspection.status
+                      }}
+                    </span>
+                    <span
+                      v-if="inspection.defects && inspection.defects.length > 0"
+                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-rose-50 text-rose-600 border border-rose-200"
+                    >
+                      <AlertOctagon class="w-3 h-3" />
+                      {{ inspection.defects.length }} 项不合格
+                    </span>
+                  </div>
+                  <div class="flex items-center gap-4 text-xs text-slate-500 mb-2 flex-wrap">
+                    <span v-if="inspection.inspector" class="inline-flex items-center gap-1">
+                      <User class="w-3 h-3" />
+                      质检员：{{ inspection.inspector }}
+                    </span>
+                    <span class="inline-flex items-center gap-1">
+                      <CheckCircle2 class="w-3 h-3 text-emerald-500" />
+                      合格：{{ (inspection.itemResults || []).filter(r => r.result === 'pass').length }}
+                    </span>
+                    <span class="inline-flex items-center gap-1">
+                      <XCircle class="w-3 h-3 text-rose-500" />
+                      不合格：{{ (inspection.itemResults || []).filter(r => r.result === 'fail').length }}
+                    </span>
+                    <span v-if="inspection.startedAt" class="inline-flex items-center gap-1">
+                      <Clock class="w-3 h-3" />
+                      {{ inspection.startedAt?.slice(5, 16) }}
+                    </span>
+                  </div>
+                  <div v-if="inspection.defects && inspection.defects.length > 0" class="mt-2 space-y-2">
+                    <div
+                      v-for="defect in inspection.defects.slice(0, 2)"
+                      :key="defect.id"
+                      class="p-2.5 bg-rose-50 rounded-lg border border-rose-100"
+                    >
+                      <div class="flex items-center gap-2 flex-wrap mb-1">
+                        <span
+                          class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium"
+                          :class="{
+                            'bg-amber-100 text-amber-700': defect.severity === 'minor',
+                            'bg-orange-100 text-orange-700': defect.severity === 'major',
+                            'bg-rose-100 text-rose-700': defect.severity === 'critical',
+                          }"
+                        >
+                          {{ defect.severity === 'minor' ? '轻微' : defect.severity === 'major' ? '一般' : '严重' }}
+                        </span>
+                        <span class="text-xs font-medium text-slate-700">{{ defect.problemType }}</span>
+                        <span v-if="defect.responsibleTechnician" class="text-xs text-slate-500">
+                          责任：{{ defect.responsibleTechnician }}
+                        </span>
+                        <span
+                          v-if="defect.recheckResult"
+                          class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium"
+                          :class="defect.recheckResult === 'pass' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'"
+                        >
+                          复检：{{ defect.recheckResult === 'pass' ? '通过' : '不通过' }}
+                        </span>
+                      </div>
+                      <p class="text-xs text-slate-600 line-clamp-1">{{ defect.problemDescription }}</p>
+                    </div>
+                    <button
+                      v-if="inspection.defects.length > 2"
+                      class="text-xs text-slate-500 hover:text-slate-700"
+                    >
+                      还有 {{ inspection.defects.length - 2 }} 项问题...
+                    </button>
+                  </div>
+                </div>
+                <button
+                  class="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors flex-shrink-0"
+                  title="查看质检详情"
+                  @click="router.push(`/quality/${inspection.id}`)"
+                >
+                  <ExternalLink class="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+          <div v-else class="p-10 text-center">
+            <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-slate-100 flex items-center justify-center">
+              <ShieldCheck class="w-8 h-8 text-slate-300" />
+            </div>
+            <p class="text-sm font-medium text-slate-600 mb-1">暂无质检记录</p>
+            <p class="text-xs text-slate-400">订单加工完成后将进行阶段质检和出厂终检</p>
           </div>
         </div>
 

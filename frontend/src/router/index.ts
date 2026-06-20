@@ -17,6 +17,8 @@ import PriceRuleConfig from '@/pages/PriceRuleConfig.vue'
 import OrderQuoteDetail from '@/pages/OrderQuoteDetail.vue'
 import StatementList from '@/pages/StatementList.vue'
 import MonthlySettlementDetail from '@/pages/MonthlySettlementDetail.vue'
+import QualityInspectionList from '@/pages/QualityInspectionList.vue'
+import QualityInspectionDetail from '@/pages/QualityInspectionDetail.vue'
 
 const routes = [
   {
@@ -138,6 +140,18 @@ const routes = [
     name: 'monthly-settlement-detail',
     component: MonthlySettlementDetail,
     meta: { title: '月度结算详情' },
+  },
+  {
+    path: '/quality',
+    name: 'quality-inspection-list',
+    component: QualityInspectionList,
+    meta: { title: '质检中心' },
+  },
+  {
+    path: '/quality/:id',
+    name: 'quality-inspection-detail',
+    component: QualityInspectionDetail,
+    meta: { title: '质检详情' },
   },
 ]
 
