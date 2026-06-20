@@ -137,6 +137,11 @@ export function provideNotifications() {
     }
   }
 
+  function getDedupeKey(orderId: string, type: NotificationType, triggerCondition: string): string {
+    const today = new Date().toISOString().split('T')[0]
+    return `${orderId}:${type}:${triggerCondition}:${today}`
+  }
+
   function addNotification(params: {
     type: NotificationType
     targetRoles: NotificationRole[]
@@ -149,13 +154,22 @@ export function provideNotifications() {
     linkPath?: string
     moduleLinkPath?: string
     moduleLabel?: string
-  }): Notification {
+  }): Notification | null {
+    const triggerCondition = params.triggerCondition || NotificationTriggerRules.find(r => r.type === params.type)?.description || ''
+    const dedupeKey = getDedupeKey(params.orderId, params.type, triggerCondition)
+
+    const existing = notifications.value.find(n => {
+      const nKey = getDedupeKey(n.orderId, n.type, n.triggerCondition)
+      return nKey === dedupeKey && n.handleStatus !== 'handled'
+    })
+    if (existing) return null
+
     const notif: Notification = {
       id: generateNotificationId(),
       type: params.type,
       category: NotificationTypeCategoryMap[params.type],
       targetRoles: params.targetRoles,
-      triggerCondition: params.triggerCondition || NotificationTriggerRules.find(r => r.type === params.type)?.description || '',
+      triggerCondition,
       orderId: params.orderId,
       orderNumber: params.orderNumber,
       clinicName: params.clinicName,
@@ -301,6 +315,7 @@ export function provideNotifications() {
     addNotification,
     updateSettings,
     isTypeEnabledForRole,
+    getDedupeKey,
     generateOverdueWarning,
     generateDeliveryToday,
     generateStatOrder,
