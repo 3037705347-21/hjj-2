@@ -32,6 +32,7 @@ let _notificationGenerator: {
   generateStatOrder?: (orderId: string, orderNumber: string, clinicName: string, stage?: string) => void
   generateOverdueWarning?: (orderId: string, orderNumber: string, clinicName: string, daysLeft: number, stage?: string) => void
   generateAttachmentMissing?: (orderId: string, orderNumber: string, clinicName: string, missingTypes: string) => void
+  generateDeliveryToday?: (orderId: string, orderNumber: string, clinicName: string, stage?: string) => void
 } = {}
 
 export function registerNotificationGenerator(gen: typeof _notificationGenerator) {
@@ -844,6 +845,8 @@ export function useOrders() {
       )
     }
 
+    checkOrderNotifications(newOrder)
+
     return newOrder
   }
 
@@ -897,6 +900,9 @@ export function useOrders() {
     if (params.totalAmount !== undefined) existing.totalAmount = params.totalAmount
 
     orders.value[idx] = { ...existing }
+    if (params.deliveryDate) {
+      checkOrderDeliveryWarning(orders.value[idx])
+    }
     return orders.value[idx]
   }
 
@@ -959,7 +965,74 @@ export function useOrders() {
 
     order.attachments.push(attachment)
     orders.value[idx] = { ...order }
+    checkOrderAttachmentMissing(orders.value[idx])
     return attachment
+  }
+
+  function computeDaysLeft(deliveryDate: string): number {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const delivery = new Date(deliveryDate)
+    delivery.setHours(0, 0, 0, 0)
+    return Math.ceil((delivery.getTime() - today.getTime()) / 86400000)
+  }
+
+  function checkOrderDeliveryWarning(order: Order) {
+    if (order.status === 'completed') return
+    const daysLeft = computeDaysLeft(order.deliveryDate)
+    if (daysLeft === 0) {
+      if (_notificationGenerator.generateDeliveryToday) {
+        _notificationGenerator.generateDeliveryToday(
+          order.id,
+          order.orderNumber,
+          order.clinic.name,
+          order.currentStage
+        )
+      }
+    } else if (daysLeft <= 3) {
+      if (_notificationGenerator.generateOverdueWarning) {
+        _notificationGenerator.generateOverdueWarning(
+          order.id,
+          order.orderNumber,
+          order.clinic.name,
+          daysLeft,
+          order.currentStage
+        )
+      }
+    }
+  }
+
+  function checkOrderAttachmentMissing(order: Order) {
+    if (order.status === 'completed') return
+    const existingCategories = new Set(order.attachments.map(a => a.category))
+    const missing: string[] = []
+
+    if (!existingCategories.has('prescription-photo')) {
+      missing.push('处方单照片')
+    }
+    if (order.impressionMethod === 'digital-scan' && !existingCategories.has('intraoral-scan')) {
+      missing.push('口扫文件')
+    }
+
+    if (missing.length > 0 && _notificationGenerator.generateAttachmentMissing) {
+      _notificationGenerator.generateAttachmentMissing(
+        order.id,
+        order.orderNumber,
+        order.clinic.name,
+        missing.join('、')
+      )
+    }
+  }
+
+  function checkOrderNotifications(order: Order) {
+    checkOrderDeliveryWarning(order)
+    checkOrderAttachmentMissing(order)
+  }
+
+  function scanAllOrderNotifications() {
+    for (const order of orders.value) {
+      checkOrderNotifications(order)
+    }
   }
 
   interface AddCommunicationParams {
@@ -1025,5 +1098,9 @@ export function useOrders() {
     updateReworkStatus,
     getActiveRework,
     getAllReworks,
+    checkOrderNotifications,
+    scanAllOrderNotifications,
+    checkOrderDeliveryWarning,
+    checkOrderAttachmentMissing,
   }
 }

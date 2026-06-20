@@ -47,13 +47,13 @@ import {
 } from './composables/useRoles'
 import { provideTechnicians } from './composables/useTechnicians'
 import { provideNotificationSystem, useNotifications } from './composables/useNotifications'
-import { registerNotificationGenerator } from './composables/useOrders'
+import { registerNotificationGenerator, useOrders } from './composables/useOrders'
 
 provideRole()
 provideTechnicians()
 provideNotificationSystem()
 
-const { unreadCount, generateStageCompleted, generateReworkInitiated, generateStatOrder, generateOverdueWarning, generateAttachmentMissing } = useNotifications()
+const { unreadCount, generateStageCompleted, generateReworkInitiated, generateStatOrder, generateOverdueWarning, generateAttachmentMissing, generateDeliveryToday } = useNotifications()
 
 registerNotificationGenerator({
   generateStageCompleted,
@@ -61,7 +61,10 @@ registerNotificationGenerator({
   generateStatOrder,
   generateOverdueWarning,
   generateAttachmentMissing,
+  generateDeliveryToday,
 })
+
+const { scanAllOrderNotifications } = useOrders()
 
 const route = useRoute()
 const router = useRouter()
@@ -71,6 +74,7 @@ const currentUserInfo = ref({ name: '陈调度员', department: '调度中心' }
 
 onMounted(() => {
   updateUserInfo()
+  scanAllOrderNotifications()
 })
 
 function updateUserInfo() {
