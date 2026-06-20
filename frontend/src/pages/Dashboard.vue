@@ -50,6 +50,7 @@ import OrderCard from '../components/OrderCard.vue'
 import StatusBadge from '../components/StatusBadge.vue'
 import PriorityBadge from '../components/PriorityBadge.vue'
 import StageTimeline from '../components/StageTimeline.vue'
+import DashboardNotificationPanel from '../components/DashboardNotificationPanel.vue'
 import type {
   Order,
   OrderStatus,
@@ -1554,6 +1555,8 @@ function formatDate(dateStr: string) {
         </div>
       </template>
     </div>
+
+    <DashboardNotificationPanel />
 
     <div class="mb-6 bg-white rounded-xl border border-slate-200 p-4">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">

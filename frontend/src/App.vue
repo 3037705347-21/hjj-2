@@ -46,9 +46,22 @@ import {
   getDashboardConfig,
 } from './composables/useRoles'
 import { provideTechnicians } from './composables/useTechnicians'
+import { provideNotificationSystem, useNotifications } from './composables/useNotifications'
+import { registerNotificationGenerator } from './composables/useOrders'
 
 provideRole()
 provideTechnicians()
+provideNotificationSystem()
+
+const { unreadCount, generateStageCompleted, generateReworkInitiated, generateStatOrder, generateOverdueWarning, generateAttachmentMissing } = useNotifications()
+
+registerNotificationGenerator({
+  generateStageCompleted,
+  generateReworkInitiated,
+  generateStatOrder,
+  generateOverdueWarning,
+  generateAttachmentMissing,
+})
 
 const route = useRoute()
 const router = useRouter()
@@ -85,6 +98,7 @@ const navItems = computed(() => {
     items.push(
       { label: '我的订单', icon: FileText, path: '/', badge: null },
       { label: '新建订单', icon: ClipboardList, path: '/order/new', badge: null },
+      { label: '通知中心', icon: Bell, path: '/notifications', badge: unreadCount.value || null },
       { label: '诊所信息', icon: Users, path: '/', badge: null },
       { label: '系统设置', icon: Settings, path: '/', badge: null }
     )
@@ -93,6 +107,7 @@ const navItems = computed(() => {
       { label: '我的工作台', icon: Briefcase, path: '/workbench', badge: null },
       { label: '今日排产', icon: CalendarClock, path: '/schedule', badge: null },
       { label: '任务列表', icon: Wrench, path: '/technician-tasks', badge: null },
+      { label: '通知中心', icon: Bell, path: '/notifications', badge: unreadCount.value || null },
       { label: '个人设置', icon: UserCircle, path: '/', badge: null }
     )
   } else {
@@ -106,6 +121,7 @@ const navItems = computed(() => {
       { label: '对账单', icon: Receipt, path: '/statements', badge: null },
       { label: '价格规则', icon: Tag, path: '/pricing/rules', badge: null },
       { label: '质检中心', icon: ShieldCheck, path: '/quality', badge: null },
+      { label: '通知中心', icon: Bell, path: '/notifications', badge: unreadCount.value || null },
       { label: '数据统计', icon: BarChart3, path: '/', badge: null },
       { label: '系统设置', icon: Settings, path: '/', badge: null }
     )
@@ -175,6 +191,11 @@ const breadcrumbs = computed(() => {
   } else if (route.name === 'quality-inspection-detail') {
     items.push({ label: '质检中心', path: '/quality' })
     items.push({ label: '质检详情' })
+  } else if (route.name === 'notification-list') {
+    items.push({ label: '通知中心' })
+  } else if (route.name === 'notification-settings') {
+    items.push({ label: '通知中心', path: '/notifications' })
+    items.push({ label: '消息设置' })
   }
   return items
 })
@@ -380,10 +401,18 @@ function toggleSidebar() {
 
           <button
             class="relative p-2 rounded-lg hover:bg-slate-100 transition-colors"
+            @click="router.push('/notifications')"
           >
             <Bell class="w-5 h-5 text-slate-600" />
             <span
-              class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white"
+              v-if="unreadCount > 0"
+              class="absolute top-1 right-1 inline-flex items-center justify-center min-w-[1rem] h-4 px-1 text-[9px] font-bold text-white bg-rose-500 rounded-full ring-2 ring-white"
+            >
+              {{ unreadCount > 99 ? '99+' : unreadCount }}
+            </span>
+            <span
+              v-else
+              class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-slate-300 ring-2 ring-white"
             ></span>
           </button>
 

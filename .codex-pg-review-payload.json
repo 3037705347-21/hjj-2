@@ -1,0 +1,16 @@
+﻿{
+  "repo_id": "hjj-2",
+  "repo_id_suffix": "13",
+  "repo_id_suffix_explicit": true,
+  "trae_session_id": ".10315052358362:3fb0a139120e9bc65dd9b215cc34e5a0_6a350673b35a805db19fa9c9.6a35105bb35a805db19faf98.6a3510597f88470857565f9c:Trae CN.T(2026/6/19 17:48:11)",
+  "user_prompt": "修复对账单列表进入月度结算详情的跳转，并让报价页调整应收、登记收款后同步更新对账单与月度结算汇总，再回归验证按诊所、月份、支付状态筛选和导出结果一致。",
+  "repo_url": "https://github.com/rui-914/hjj-2",
+  "commit_id": "e0d2818cbbc64bbe5b549e9f233ed6f056248462",
+  "task_type": "Bug修复",
+  "business_domain": "Web前端",
+  "change_scope": "跨模块多文件",
+  "task_difficulty": "一般",
+  "task_completed": "是",
+  "satisfaction": "是",
+  "dissatisfaction_reason": ""
+}

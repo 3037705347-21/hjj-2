@@ -19,6 +19,8 @@ import StatementList from '@/pages/StatementList.vue'
 import MonthlySettlementDetail from '@/pages/MonthlySettlementDetail.vue'
 import QualityInspectionList from '@/pages/QualityInspectionList.vue'
 import QualityInspectionDetail from '@/pages/QualityInspectionDetail.vue'
+import NotificationList from '@/pages/NotificationList.vue'
+import NotificationSettings from '@/pages/NotificationSettings.vue'
 
 const routes = [
   {
@@ -152,6 +154,18 @@ const routes = [
     name: 'quality-inspection-detail',
     component: QualityInspectionDetail,
     meta: { title: '质检详情' },
+  },
+  {
+    path: '/notifications',
+    name: 'notification-list',
+    component: NotificationList,
+    meta: { title: '通知中心' },
+  },
+  {
+    path: '/notifications/settings',
+    name: 'notification-settings',
+    component: NotificationSettings,
+    meta: { title: '消息设置' },
   },
 ]
 

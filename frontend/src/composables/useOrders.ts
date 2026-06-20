@@ -26,6 +26,18 @@ import { MockOrders } from '../mock/orders'
 import { MockClinics } from '../mock/clinics'
 import { useClinics } from './useClinics'
 
+let _notificationGenerator: {
+  generateStageCompleted?: (orderId: string, orderNumber: string, clinicName: string, stageLabel: string, nextStageLabel: string, stage?: string) => void
+  generateReworkInitiated?: (orderId: string, orderNumber: string, clinicName: string, reason: string, stage?: string) => void
+  generateStatOrder?: (orderId: string, orderNumber: string, clinicName: string, stage?: string) => void
+  generateOverdueWarning?: (orderId: string, orderNumber: string, clinicName: string, daysLeft: number, stage?: string) => void
+  generateAttachmentMissing?: (orderId: string, orderNumber: string, clinicName: string, missingTypes: string) => void
+} = {}
+
+export function registerNotificationGenerator(gen: typeof _notificationGenerator) {
+  _notificationGenerator = gen
+}
+
 const STORAGE_KEY = 'denture-lab-orders'
 
 function migrateReturnRecord(record: any, order: Order): ReturnRecord {
@@ -357,6 +369,20 @@ export function useOrders() {
     )
 
     orders.value[idx] = { ...order }
+
+    const completedStageInfo = ProcessingStages[currentIdx]
+    const nextStageInfo = currentIdx < ProcessingStages.length - 1 ? ProcessingStages[currentIdx + 1] : null
+    if (nextStageInfo && _notificationGenerator.generateStageCompleted) {
+      _notificationGenerator.generateStageCompleted(
+        order.id,
+        order.orderNumber,
+        order.clinic.name,
+        completedStageInfo.label,
+        nextStageInfo.label,
+        completedStageInfo.stage
+      )
+    }
+
     return orders.value[idx]
   }
 
@@ -457,6 +483,17 @@ export function useOrders() {
     )
 
     orders.value[idx] = { ...order }
+
+    if (_notificationGenerator.generateReworkInitiated) {
+      _notificationGenerator.generateReworkInitiated(
+        order.id,
+        order.orderNumber,
+        order.clinic.name,
+        params.reason,
+        ProcessingStages[currentIdx].stage
+      )
+    }
+
     return orders.value[idx]
   }
 
@@ -797,6 +834,16 @@ export function useOrders() {
     })
 
     orders.value.unshift(newOrder)
+
+    if (newOrder.priority === 'stat' && _notificationGenerator.generateStatOrder) {
+      _notificationGenerator.generateStatOrder(
+        newOrder.id,
+        newOrder.orderNumber,
+        newOrder.clinic.name,
+        'received'
+      )
+    }
+
     return newOrder
   }
 

@@ -1191,3 +1191,164 @@ export interface QualityStatsResult {
   trendData: { date: string; total: number; pass: number; fail: number }[]
 }
 
+export type NotificationType =
+  | 'overdue-warning'
+  | 'delivery-today'
+  | 'stat-order'
+  | 'rework-initiated'
+  | 'stage-completed'
+  | 'attachment-missing'
+
+export const NotificationTypeLabels: Record<NotificationType, string> = {
+  'overdue-warning': '逾期预警',
+  'delivery-today': '今日交付',
+  'stat-order': '特急单提醒',
+  'rework-initiated': '返工发起',
+  'stage-completed': '阶段完成',
+  'attachment-missing': '附件缺失',
+}
+
+export const NotificationTypeColors: Record<NotificationType, string> = {
+  'overdue-warning': 'bg-rose-50 text-rose-700 border-rose-200',
+  'delivery-today': 'bg-amber-50 text-amber-700 border-amber-200',
+  'stat-order': 'bg-red-50 text-red-700 border-red-200',
+  'rework-initiated': 'bg-orange-50 text-orange-700 border-orange-200',
+  'stage-completed': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'attachment-missing': 'bg-violet-50 text-violet-700 border-violet-200',
+}
+
+export const NotificationTypeIcons: Record<NotificationType, string> = {
+  'overdue-warning': 'AlertTriangle',
+  'delivery-today': 'CalendarClock',
+  'stat-order': 'Zap',
+  'rework-initiated': 'RefreshCw',
+  'stage-completed': 'CheckCircle2',
+  'attachment-missing': 'Paperclip',
+}
+
+export type NotificationRole = 'clinic' | 'technician' | 'dispatcher'
+
+export const NotificationRoleLabels: Record<NotificationRole, string> = {
+  'clinic': '诊所端',
+  'technician': '技师端',
+  'dispatcher': '调度员',
+}
+
+export type NotificationHandleStatus = 'pending' | 'handled' | 'ignored'
+
+export const NotificationHandleStatusLabels: Record<NotificationHandleStatus, string> = {
+  'pending': '待处理',
+  'handled': '已处理',
+  'ignored': '已忽略',
+}
+
+export const NotificationHandleStatusColors: Record<NotificationHandleStatus, string> = {
+  'pending': 'bg-amber-50 text-amber-700 border-amber-200',
+  'handled': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'ignored': 'bg-slate-50 text-slate-600 border-slate-200',
+}
+
+export interface NotificationTriggerRule {
+  type: NotificationType
+  condition: string
+  description: string
+  targetRoles: NotificationRole[]
+}
+
+export const NotificationTriggerRules: NotificationTriggerRule[] = [
+  {
+    type: 'overdue-warning',
+    condition: 'deliveryDate - today <= 2 && deliveryDate > today',
+    description: '交期前2天提醒，确保按时交付',
+    targetRoles: ['dispatcher', 'technician'],
+  },
+  {
+    type: 'delivery-today',
+    condition: 'deliveryDate === today',
+    description: '今日需交付订单提醒',
+    targetRoles: ['dispatcher', 'technician', 'clinic'],
+  },
+  {
+    type: 'stat-order',
+    condition: 'priority === "stat"',
+    description: '特急单创建或进度更新时提醒',
+    targetRoles: ['dispatcher', 'technician'],
+  },
+  {
+    type: 'rework-initiated',
+    condition: 'returnRecords新增且status !== "closed"',
+    description: '返工发起时通知相关人员',
+    targetRoles: ['dispatcher', 'technician', 'clinic'],
+  },
+  {
+    type: 'stage-completed',
+    condition: 'stageHistory新增completedAt',
+    description: '阶段完成时通知下一环节',
+    targetRoles: ['dispatcher', 'technician'],
+  },
+  {
+    type: 'attachment-missing',
+    condition: '缺少口扫文件或处方单照片',
+    description: '必要附件缺失时提醒补传',
+    targetRoles: ['clinic', 'dispatcher'],
+  },
+]
+
+export type NotificationCategory = 'delivery-warning' | 'rework-reminder' | 'stage-change' | 'attachment-reminder'
+
+export const NotificationCategoryLabels: Record<NotificationCategory, string> = {
+  'delivery-warning': '交期预警',
+  'rework-reminder': '返工提醒',
+  'stage-change': '阶段变更',
+  'attachment-reminder': '资料补传',
+}
+
+export const NotificationCategoryColors: Record<NotificationCategory, string> = {
+  'delivery-warning': 'bg-rose-50 text-rose-700 border-rose-200',
+  'rework-reminder': 'bg-orange-50 text-orange-700 border-orange-200',
+  'stage-change': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'attachment-reminder': 'bg-violet-50 text-violet-700 border-violet-200',
+}
+
+export const NotificationCategoryIconMap: Record<NotificationCategory, string> = {
+  'delivery-warning': 'AlertTriangle',
+  'rework-reminder': 'RefreshCw',
+  'stage-change': 'CheckCircle2',
+  'attachment-reminder': 'Paperclip',
+}
+
+export const NotificationTypeCategoryMap: Record<NotificationType, NotificationCategory> = {
+  'overdue-warning': 'delivery-warning',
+  'delivery-today': 'delivery-warning',
+  'stat-order': 'delivery-warning',
+  'rework-initiated': 'rework-reminder',
+  'stage-completed': 'stage-change',
+  'attachment-missing': 'attachment-reminder',
+}
+
+export interface Notification {
+  id: string
+  type: NotificationType
+  category: NotificationCategory
+  targetRoles: NotificationRole[]
+  triggerCondition: string
+  orderId: string
+  orderNumber: string
+  clinicName: string
+  content: string
+  isRead: boolean
+  handleStatus: NotificationHandleStatus
+  sentAt: string
+  relatedStage?: ProcessingStage
+  linkPath: string
+  moduleLinkPath?: string
+  moduleLabel?: string
+}
+
+export interface NotificationSetting {
+  type: NotificationType
+  label: string
+  enabled: boolean
+  roleEnabled: Record<NotificationRole, boolean>
+}
+

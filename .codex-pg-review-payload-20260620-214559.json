@@ -1,0 +1,17 @@
+{
+  "repo_id": "hjj-2",
+  "repo_id_suffix": "14",
+  "repo_id_suffix_explicit": true,
+  "trae_session_id": ".10315052358362:462b8e4b30bc2775d47182136a6b674f_6a3683633027c4c3911c1c03.6a3699973027c4c3911c24a7.6a3699965857bd1415aed892:Trae CN.T(2026/6/20 21:45:59)",
+  "user_prompt": "修复质检中心统计筛选，支持按问题类型、责任技师、时间范围联动筛选不合格分布；修复复检链路，在整改后复检通过时同步更新不合格项、返工记录和质检单状态，使终检单可以继续完成并放行。",
+  "repo_url": "https://github.com/3037705347-21/hjj-2",
+  "commit_id": "2a87d2e15a0ce5fc18e2079e783a38eb1b71eb11",
+  "task_type": "Bug修复",
+  "business_domain": "Web前端",
+  "change_scope": "模块内多文件",
+  "task_difficulty": "一般",
+  "task_completed": "是",
+  "satisfaction": "是",
+  "dissatisfaction_reason": "",
+  "submitted_at": "2026-06-20 21:52"
+}

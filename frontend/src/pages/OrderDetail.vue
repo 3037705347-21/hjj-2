@@ -62,6 +62,8 @@ import { useRoles } from '../composables/useRoles'
 import { useTechnicians } from '../composables/useTechnicians'
 import { useLogistics } from '../composables/useLogistics'
 import { useQualityInspection } from '../composables/useQualityInspection'
+import { useNotifications } from '../composables/useNotifications'
+import OrderNotificationStream from '../components/OrderNotificationStream.vue'
 import type { StageHistoryEntry, ProcessingStage, ReturnRecord, ReworkStatus, ReworkSourceStage, ReworkProblemType, ReworkRootCause, ReworkResponsibility, TaskAssignment, TaskPriority } from '../types'
 import {
   ProcessingStages,
@@ -1953,6 +1955,8 @@ function goToQuote() {
             </div>
           </div>
         </div>
+
+        <OrderNotificationStream :order-id="order.id" />
 
         <div class="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div
