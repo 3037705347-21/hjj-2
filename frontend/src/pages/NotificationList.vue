@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import {
   Bell,
   AlertTriangle,
@@ -39,6 +39,7 @@ import {
 } from '../types'
 
 const router = useRouter()
+const route = useRoute()
 const {
   roleNotifications,
   unreadCount,
@@ -54,7 +55,6 @@ const {
 } = useNotifications()
 
 const searchQuery = ref('')
-const activeCategory = ref<NotificationCategory | 'all'>('all')
 const typeFilter = ref<NotificationType | 'all'>('all')
 const statusFilter = ref<NotificationHandleStatus | 'all'>('all')
 const readFilter = ref<'all' | 'unread' | 'read'>('all')
@@ -62,7 +62,35 @@ const openMenuId = ref<string | null>(null)
 const selectedIds = ref<Set<string>>(new Set())
 const selectMode = ref(false)
 
-const categories: (NotificationCategory | 'all')[] = ['all', 'delivery-warning', 'rework-reminder', 'stage-change', 'attachment-reminder']
+const validCategories: NotificationCategory[] = ['delivery-warning', 'rework-reminder', 'stage-change', 'attachment-reminder']
+const categories: (NotificationCategory | 'all')[] = ['all', ...validCategories]
+
+function parseInitialCategory(): NotificationCategory | 'all' {
+  const q = route.query.category as string
+  if (validCategories.includes(q as NotificationCategory)) return q as NotificationCategory
+  return 'all'
+}
+const activeCategory = ref<NotificationCategory | 'all'>(parseInitialCategory())
+
+watch(
+  () => route.query.category,
+  (val) => {
+    if (validCategories.includes(val as NotificationCategory)) {
+      activeCategory.value = val as NotificationCategory
+    } else if (!val) {
+      activeCategory.value = 'all'
+    }
+  }
+)
+
+watch(activeCategory, (val) => {
+  const currentQ = route.query.category
+  if (val === 'all') {
+    if (currentQ) router.replace({ query: { ...route.query, category: undefined } })
+  } else if (currentQ !== val) {
+    router.replace({ query: { ...route.query, category: val } })
+  }
+})
 
 const categoryIconMap: Record<NotificationCategory | 'all', typeof AlertTriangle> = {
   'all': Bell,

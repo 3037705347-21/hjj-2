@@ -22,7 +22,7 @@ import {
 } from '../types'
 
 const router = useRouter()
-const { allNotifications, unreadCount, getCategoryUnreadCount, getCategoryPendingCount, markAsRead } = useNotifications()
+const { roleNotifications, unreadCount, getCategoryUnreadCount, getCategoryPendingCount, markAsRead } = useNotifications()
 const { currentRole } = useRoles()
 
 const categories: NotificationCategory[] = ['delivery-warning', 'rework-reminder', 'stage-change', 'attachment-reminder']
@@ -42,7 +42,7 @@ function getIconComponent(category: NotificationCategory) {
 }
 
 const recentUnread = computed(() =>
-  allNotifications.value
+  roleNotifications.value
     .filter(n => !n.isRead)
     .slice(0, 5)
 )
