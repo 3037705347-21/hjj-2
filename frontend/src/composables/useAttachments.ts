@@ -251,8 +251,21 @@ export function useAttachments() {
   ): Attachment[] {
     const result: Attachment[] = []
     for (const params of paramsList) {
-      const att = createAttachment(params)
-      if (att) result.push(att)
+      const existing = checkSameCategoryVersion(params.orderId, params.category)
+      if (existing) {
+        const updated = uploadNewVersion({
+          attachmentId: existing.id,
+          fileName: params.fileName,
+          fileSize: params.fileSize,
+          uploadedBy: params.uploadedBy,
+          changeLog: params.remark || params.description || `同类别文件更新，原版本 ${existing.version}`,
+          url: params.url,
+        })
+        if (updated) result.push(updated)
+      } else {
+        const att = createAttachment(params)
+        if (att) result.push(att)
+      }
     }
     return result
   }
