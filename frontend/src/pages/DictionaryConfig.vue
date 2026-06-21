@@ -242,11 +242,11 @@ onMounted(() => {
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
-          <BookOpen class="w-5 h-5 text-white" />
+          <Settings class="w-5 h-5 text-white" />
         </div>
         <div>
-          <h1 class="text-xl font-bold text-slate-800">数据字典管理</h1>
-          <p class="text-sm text-slate-500">管理系统基础配置字典数据</p>
+          <h1 class="text-xl font-bold text-slate-800">系统设置</h1>
+          <p class="text-sm text-slate-500">管理基础字典、业务配置和系统参数</p>
         </div>
       </div>
       <div class="flex items-center gap-3">

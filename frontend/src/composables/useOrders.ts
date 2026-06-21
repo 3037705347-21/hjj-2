@@ -21,10 +21,11 @@ import type {
   ReworkTimelineEntry,
   ReworkStatusTransition,
 } from '../types'
-import { ProcessingStages, ReworkStatusLabels, type AttachmentFileType } from '../types'
+import { type AttachmentFileType } from '../types'
 import { MockOrders } from '../mock/orders'
 import { MockClinics } from '../mock/clinics'
 import { useClinics } from './useClinics'
+import { useDictionaries } from './useDictionaries'
 
 let _notificationGenerator: {
   generateStageCompleted?: (orderId: string, orderNumber: string, clinicName: string, stageLabel: string, nextStageLabel: string, stage?: string) => void
@@ -243,6 +244,7 @@ function addSystemCommunication(
 }
 
 export function useOrders() {
+  const { processingStages } = useDictionaries()
   const allOrders = computed(() => orders.value)
 
   function getOrderById(id: string): Order | undefined {
@@ -273,7 +275,7 @@ export function useOrders() {
 
   function createInitialStageHistory(): StageHistoryEntry[] {
     const now = formatDate(new Date())
-    const firstStage = ProcessingStages[0]
+    const firstStage = processingStages.value[0]
     return [
       {
         stage: firstStage.stage as ProcessingStage,
@@ -291,7 +293,7 @@ export function useOrders() {
   }
 
   function getCurrentStageIndex(order: Order): number {
-    return ProcessingStages.findIndex((s) => s.stage === order.currentStage)
+    return processingStages.value.findIndex((s) => s.stage === order.currentStage)
   }
 
   function determineStatusFromStage(
@@ -353,8 +355,8 @@ export function useOrders() {
       if (params.errorReason) currentEntry.errorReason = params.errorReason
     }
 
-    if (currentIdx < ProcessingStages.length - 1) {
-      const nextStage = ProcessingStages[currentIdx + 1].stage
+    if (currentIdx < processingStages.value.length - 1) {
+      const nextStage = processingStages.value[currentIdx + 1].stage
       order.currentStage = nextStage
       order.stageHistory.push({
         stage: nextStage,
@@ -371,8 +373,8 @@ export function useOrders() {
 
     orders.value[idx] = { ...order }
 
-    const completedStageInfo = ProcessingStages[currentIdx]
-    const nextStageInfo = currentIdx < ProcessingStages.length - 1 ? ProcessingStages[currentIdx + 1] : null
+    const completedStageInfo = processingStages.value[currentIdx]
+    const nextStageInfo = currentIdx < processingStages.value.length - 1 ? processingStages.value[currentIdx + 1] : null
     if (nextStageInfo && _notificationGenerator.generateStageCompleted) {
       _notificationGenerator.generateStageCompleted(
         order.id,
@@ -427,14 +429,14 @@ export function useOrders() {
 
     let targetStageIdx = currentIdx - 1
     if (params.targetStage) {
-      const targetIdx = ProcessingStages.findIndex((s) => s.stage === params.targetStage)
+      const targetIdx = processingStages.value.findIndex((s) => s.stage === params.targetStage)
       if (targetIdx >= 0 && targetIdx < currentIdx) {
         targetStageIdx = targetIdx
       }
     }
     if (targetStageIdx < 0) targetStageIdx = 0
 
-    const targetStage = ProcessingStages[targetStageIdx].stage
+    const targetStage = processingStages.value[targetStageIdx].stage
     order.currentStage = targetStage
     order.stageHistory.push({
       stage: targetStage,
@@ -456,7 +458,7 @@ export function useOrders() {
       orderId: order.id,
       returnedAt: now,
       reason: params.reason,
-      stageReturnedFrom: ProcessingStages[currentIdx].stage,
+      stageReturnedFrom: processingStages.value[currentIdx].stage,
       correctiveAction: params.correctiveAction,
       responsibleTechnician: params.responsibleTechnician,
       status: 'initiated',
@@ -479,8 +481,8 @@ export function useOrders() {
 
     addSystemCommunication(
       orderId,
-      `【发起返工】从${ProcessingStages[currentIdx].label}回退至${ProcessingStages[targetStageIdx].label} | 问题类型：${params.problemType} | 原因：${params.reason} | 整改：${params.correctiveAction}`,
-      ProcessingStages[currentIdx].stage
+      `【发起返工】从${processingStages.value[currentIdx].label}回退至${processingStages.value[targetStageIdx].label} | 问题类型：${params.problemType} | 原因：${params.reason} | 整改：${params.correctiveAction}`,
+      processingStages.value[currentIdx].stage
     )
 
     orders.value[idx] = { ...order }
@@ -491,7 +493,7 @@ export function useOrders() {
         order.orderNumber,
         order.clinic.name,
         params.reason,
-        ProcessingStages[currentIdx].stage
+        processingStages.value[currentIdx].stage
       )
     }
 
@@ -725,7 +727,7 @@ export function useOrders() {
       if (params.notes) currentEntry.notes = params.notes
     }
 
-    const shippedIdx = ProcessingStages.findIndex((s) => s.stage === 'shipped')
+    const shippedIdx = processingStages.value.findIndex((s) => s.stage === 'shipped')
     order.currentStage = 'shipped'
     if (!order.stageHistory.find((e) => e.stage === 'shipped' && !e.completedAt)) {
       order.stageHistory.push({

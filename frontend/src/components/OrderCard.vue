@@ -2,11 +2,11 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import type { Order } from '../types'
-import { RestorationTypeLabels, MaterialTypeLabels, ImpressionMethodLabels, ProcessingStages } from '../types'
 import StatusBadge from './StatusBadge.vue'
 import PriorityBadge from './PriorityBadge.vue'
 import StageTimeline from './StageTimeline.vue'
 import { useRoles } from '../composables/useRoles'
+import { useDictionaries } from '../composables/useDictionaries'
 import {
   Calendar,
   Clock,
@@ -33,6 +33,7 @@ const emit = defineEmits<{
 
 const router = useRouter()
 const { currentRole, canViewField, canPerformAction, canEditField } = useRoles()
+const { restorationTypeLabels, materialTypeLabels, impressionMethodLabels, processingStages } = useDictionaries()
 
 const today = new Date()
 const delivery = new Date(props.order.deliveryDate)
@@ -56,12 +57,12 @@ const workSummary = props.order.workItems
   .join(', ')
 
 const materials = Array.from(
-  new Set(props.order.workItems.map((w) => MaterialTypeLabels[w.material]))
+  new Set(props.order.workItems.map((w) => materialTypeLabels.value[w.material]))
 ).join('、')
 
 const restorationTypes = Array.from(
   new Set(
-    props.order.workItems.map((w) => RestorationTypeLabels[w.restorationType])
+    props.order.workItems.map((w) => restorationTypeLabels.value[w.restorationType])
   )
 ).join('、')
 
@@ -80,7 +81,7 @@ const currentStageNotes = computed(() => {
 })
 
 const currentStageLabel = computed(() => {
-  const stage = ProcessingStages.find((s) => s.stage === props.order.currentStage)
+  const stage = processingStages.value.find((s) => s.stage === props.order.currentStage)
   return stage?.label || ''
 })
 
@@ -236,7 +237,7 @@ function goToCopy(e: MouseEvent) {
 
           <div v-if="canViewField('impressionMethod')" class="flex items-center gap-1.5 text-slate-500">
             <ClipboardList class="w-3.5 h-3.5" />
-            <span>{{ ImpressionMethodLabels[order.impressionMethod] }}</span>
+            <span>{{ impressionMethodLabels[order.impressionMethod] }}</span>
           </div>
 
           <div v-if="canViewField('totalAmount') && order.totalAmount !== undefined" class="flex items-center gap-1.5 text-slate-500">

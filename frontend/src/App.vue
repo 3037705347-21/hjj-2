@@ -132,8 +132,7 @@ const navItems = computed(() => {
       { label: '附件中心', icon: Database, path: '/attachments', badge: null },
       { label: '通知中心', icon: Bell, path: '/notifications', badge: unreadCount.value || null },
       { label: '数据统计', icon: BarChart3, path: '/', badge: null },
-      { label: '数据字典', icon: BookOpen, path: '/settings/dictionary', badge: null },
-      { label: '系统设置', icon: Settings, path: '/', badge: null }
+      { label: '系统设置', icon: Settings, path: '/settings/dictionary', badge: null }
     )
   }
 
@@ -212,7 +211,7 @@ const breadcrumbs = computed(() => {
     items.push({ label: '附件中心', path: '/attachments' })
     items.push({ label: '附件详情' })
   } else if (route.name === 'dictionary-config') {
-    items.push({ label: '数据字典管理' })
+    items.push({ label: '系统设置' })
   }
   return items
 })

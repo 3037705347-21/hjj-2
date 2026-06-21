@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { ProcessingStage } from '../types'
-import { ProcessingStages } from '../types'
+import { useDictionaries } from '../composables/useDictionaries'
 import { cn } from '../lib/utils'
 import { Check, Circle, ChevronRight } from 'lucide-vue-next'
 
@@ -9,10 +10,12 @@ const props = defineProps<{
   compact?: boolean
 }>()
 
-const currentIndex = ProcessingStages.findIndex((s) => s.stage === props.currentStage)
+const { processingStages } = useDictionaries()
+
+const currentIndex = computed(() => processingStages.value.findIndex((s) => s.stage === props.currentStage))
 
 function getStageClass(index: number) {
-  if (index < currentIndex) {
+  if (index < currentIndex.value) {
     return {
       outer: 'bg-emerald-600 border-emerald-600',
       icon: 'text-white',
@@ -20,7 +23,7 @@ function getStageClass(index: number) {
       dot: 'bg-emerald-600',
     }
   }
-  if (index === currentIndex) {
+  if (index === currentIndex.value) {
     return {
       outer: 'bg-white border-blue-600 ring-4 ring-blue-100',
       icon: 'text-blue-600',
@@ -40,7 +43,7 @@ function getStageClass(index: number) {
 <template>
   <div class="w-full">
     <div class="flex items-start justify-between gap-1">
-      <template v-for="(stage, index) in ProcessingStages" :key="stage.stage">
+      <template v-for="(stage, index) in processingStages" :key="stage.stage">
         <div class="flex flex-col items-center flex-1 min-w-0">
           <div
             class="relative flex items-center justify-center w-8 h-8 rounded-full border-2 flex-shrink-0 transition-all duration-200"
@@ -57,7 +60,7 @@ function getStageClass(index: number) {
           </div>
         </div>
         <div
-          v-if="index < ProcessingStages.length - 1"
+          v-if="index < processingStages.length - 1"
           class="flex-shrink-0 flex items-center mt-4 mx-0.5"
         >
           <div

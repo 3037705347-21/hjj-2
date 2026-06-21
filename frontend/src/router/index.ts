@@ -186,7 +186,7 @@ const routes = [
     path: '/settings/dictionary',
     name: 'dictionary-config',
     component: DictionaryConfig,
-    meta: { title: '数据字典管理' },
+    meta: { title: '系统设置' },
   },
 ]
 

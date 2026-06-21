@@ -1,5 +1,5 @@
 import { ref, computed, watch, provide, inject } from 'vue'
-import type { DictionaryItem, DictionaryCategory, DictionaryFilter } from '../types'
+import type { DictionaryItem, DictionaryCategory, DictionaryFilter, ProcessingStage } from '../types'
 import { DictionaryCategoryLabels } from '../types'
 import { MockDictionaryItems } from '../mock/dictionaries'
 
@@ -281,7 +281,7 @@ export function useDictionaries() {
 
   const processingStages = computed(() => {
     return getEnabledDictionaryItems('processing_stage').map((item) => ({
-      stage: item.code,
+      stage: item.code as ProcessingStage,
       label: item.name,
       description: item.extra?.description || '',
       estimatedDurationDays: item.extra?.estimatedDurationDays || 0,
