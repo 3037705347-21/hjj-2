@@ -21,6 +21,8 @@ import QualityInspectionList from '@/pages/QualityInspectionList.vue'
 import QualityInspectionDetail from '@/pages/QualityInspectionDetail.vue'
 import NotificationList from '@/pages/NotificationList.vue'
 import NotificationSettings from '@/pages/NotificationSettings.vue'
+import AttachmentList from '@/pages/AttachmentList.vue'
+import AttachmentDetail from '@/pages/AttachmentDetail.vue'
 
 const routes = [
   {
@@ -166,6 +168,18 @@ const routes = [
     name: 'notification-settings',
     component: NotificationSettings,
     meta: { title: '消息设置' },
+  },
+  {
+    path: '/attachments',
+    name: 'attachment-list',
+    component: AttachmentList,
+    meta: { title: '数据资产与附件中心' },
+  },
+  {
+    path: '/attachments/:id',
+    name: 'attachment-detail',
+    component: AttachmentDetail,
+    meta: { title: '附件详情' },
   },
 ]
 

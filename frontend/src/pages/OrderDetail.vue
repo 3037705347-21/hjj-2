@@ -57,12 +57,14 @@ import ReworkFormDialog from '../components/ReworkFormDialog.vue'
 import ReworkDetailPanel from '../components/ReworkDetailPanel.vue'
 import TaskAssignDialog from '../components/TaskAssignDialog.vue'
 import PriorityBadge from '../components/PriorityBadge.vue'
+import AttachmentUploadDialog from '../components/AttachmentUploadDialog.vue'
 import { useOrders } from '../composables/useOrders'
 import { useRoles } from '../composables/useRoles'
 import { useTechnicians } from '../composables/useTechnicians'
 import { useLogistics } from '../composables/useLogistics'
 import { useQualityInspection } from '../composables/useQualityInspection'
 import { useNotifications } from '../composables/useNotifications'
+import { useAttachments } from '../composables/useAttachments'
 import OrderNotificationStream from '../components/OrderNotificationStream.vue'
 import type { StageHistoryEntry, ProcessingStage, ReturnRecord, ReworkStatus, ReworkSourceStage, ReworkProblemType, ReworkRootCause, ReworkResponsibility, TaskAssignment, TaskPriority } from '../types'
 import {
@@ -134,10 +136,19 @@ const { getLogisticsByOrderId } = useLogistics()
 
 const { getInspectionsByOrder } = useQualityInspection()
 
+const { getAttachmentsByOrderId } = useAttachments()
+
 const orderQualityInspections = computed(() => {
   if (!order.value) return []
   return getInspectionsByOrder(order.value.id)
 })
+
+const orderAttachments = computed(() => {
+  if (!order.value) return []
+  return getAttachmentsByOrderId(order.value.id)
+})
+
+const showAttachmentUploadDialog = ref(false)
 
 const orderLogistics = computed<LogisticsRecord[]>(() => {
   if (!order.value) return []
@@ -1750,7 +1761,12 @@ function goToQuote() {
           </div>
         </div>
 
-        <AttachmentCard :attachments="order.attachments" />
+        <AttachmentCard
+          :attachments="orderAttachments"
+          :order-id="order?.id"
+          :show-global-actions="true"
+          @upload="showAttachmentUploadDialog = true"
+        />
 
         <CommunicationCard :communications="order.communications" />
       </div>
@@ -2151,5 +2167,11 @@ function goToQuote() {
     :existing-technician-name="existingTaskForAssign?.technicianName"
     @close="showTaskAssignDialog = false"
     @submit="handleTaskAssignSubmit"
+  />
+
+  <AttachmentUploadDialog
+    :visible="showAttachmentUploadDialog"
+    :pre-selected-order-id="order?.id"
+    @update:visible="showAttachmentUploadDialog = $event"
   />
 </template>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import {
   Paperclip,
   FileText,
@@ -13,6 +14,8 @@ import {
   Eye,
   Folder,
   Filter,
+  ExternalLink,
+  Plus,
 } from 'lucide-vue-next'
 import type { Attachment, AttachmentCategory } from '../types'
 import {
@@ -22,9 +25,19 @@ import {
 
 interface Props {
   attachments: Attachment[]
+  orderId?: string
+  showGlobalActions?: boolean
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  showGlobalActions: false,
+})
+
+const emit = defineEmits<{
+  (e: 'upload'): void
+}>()
+
+const router = useRouter()
 
 const activeCategory = ref<AttachmentCategory | 'all'>('all')
 
@@ -64,6 +77,9 @@ const groupedAttachments = computed(() => {
     'facial-photo': [],
     'design-draft': [],
     'logistics-receipt': [],
+    'quality-report': [],
+    'rework-document': [],
+    'other-document': [],
   }
   filtered.forEach((a) => {
     groups[a.category].push(a)
@@ -109,6 +125,18 @@ function formatDate(dateStr: string) {
 function setCategory(cat: AttachmentCategory | 'all') {
   activeCategory.value = cat
 }
+
+function goToAttachmentDetail(attachmentId: string) {
+  router.push(`/attachments/${attachmentId}`)
+}
+
+function goToAttachmentCenter() {
+  if (props.orderId) {
+    router.push(`/attachments?orderId=${props.orderId}`)
+  } else {
+    router.push('/attachments')
+  }
+}
 </script>
 
 <template>
@@ -128,6 +156,25 @@ function setCategory(cat: AttachmentCategory | 'all') {
             共 {{ attachments.length }} 个文件
           </p>
         </div>
+      </div>
+      <div
+        v-if="showGlobalActions"
+        class="flex items-center gap-2"
+      >
+        <button
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:text-slate-800 transition-colors"
+          @click="goToAttachmentCenter"
+        >
+          <ExternalLink class="w-3.5 h-3.5" />
+          查看全部
+        </button>
+        <button
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+          @click="emit('upload')"
+        >
+          <Plus class="w-3.5 h-3.5" />
+          上传附件
+        </button>
       </div>
     </div>
 
@@ -239,7 +286,8 @@ function setCategory(cat: AttachmentCategory | 'all') {
                     >
                       <button
                         class="p-1.5 rounded-md text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                        title="预览"
+                        title="预览详情"
+                        @click="goToAttachmentDetail(att.id)"
                       >
                         <Eye class="w-4 h-4" />
                       </button>

@@ -26,6 +26,7 @@ import {
   Tag,
   Receipt,
   Calculator,
+  Database,
 } from 'lucide-vue-next'
 import { 
   useRoles, 
@@ -125,6 +126,7 @@ const navItems = computed(() => {
       { label: '对账单', icon: Receipt, path: '/statements', badge: null },
       { label: '价格规则', icon: Tag, path: '/pricing/rules', badge: null },
       { label: '质检中心', icon: ShieldCheck, path: '/quality', badge: null },
+      { label: '附件中心', icon: Database, path: '/attachments', badge: null },
       { label: '通知中心', icon: Bell, path: '/notifications', badge: unreadCount.value || null },
       { label: '数据统计', icon: BarChart3, path: '/', badge: null },
       { label: '系统设置', icon: Settings, path: '/', badge: null }
@@ -200,6 +202,11 @@ const breadcrumbs = computed(() => {
   } else if (route.name === 'notification-settings') {
     items.push({ label: '通知中心', path: '/notifications' })
     items.push({ label: '消息设置' })
+  } else if (route.name === 'attachment-list') {
+    items.push({ label: '数据资产与附件中心' })
+  } else if (route.name === 'attachment-detail') {
+    items.push({ label: '附件中心', path: '/attachments' })
+    items.push({ label: '附件详情' })
   }
   return items
 })

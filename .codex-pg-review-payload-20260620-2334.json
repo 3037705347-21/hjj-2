@@ -1,0 +1,16 @@
+﻿{
+  "repo_id": "hjj-2-15",
+  "repo_id_suffix_explicit": true,
+  "trae_session_id": ".10315052358362:ca8f6a3672ea18ad3a0aa0b72fbc53b6_6a36a10c3027c4c3911c28d5.6a36adc73027c4c3911c2f31.6a36adc75857bd1415aed896:Trae CN.T(2026/6/20 23:12:07)",
+  "user_prompt": "同一批订单每次刷新都可能重复堆提醒，修复并完善单元测试",
+  "repo_url": "https://github.com/3037705347-21/hjj-2",
+  "commit_id": "04a4e0bba7aec450a8d27c523dd78f5f64893b9a",
+  "task_type": "Bug修复",
+  "business_domain": "Web前端",
+  "change_scope": "模块内多文件",
+  "task_difficulty": "一般",
+  "task_completed": "完成了任务",
+  "satisfaction": "满意",
+  "dissatisfaction_reason": "",
+  "submitted_at": "2026-06-20 23:34"
+}

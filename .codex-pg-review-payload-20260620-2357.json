@@ -1,0 +1,16 @@
+﻿{
+  "repo_id": "hjj-2-15",
+  "repo_id_suffix_explicit": true,
+  "trae_session_id": ".10315052358362:16d81f16036d995050d8b3af50554125_6a36a10c3027c4c3911c28d5.6a36b5f23027c4c3911c31df.6a36b5f15857bd1415aed897:Trae CN.T(2026/6/20 23:46:58)",
+  "user_prompt": "修复：看板预警面板直接读全部通知，当前角色会看到不属于自己的提醒；分类卡片虽然跳到通知中心，但没有自动落到对应分类筛选。",
+  "repo_url": "https://github.com/3037705347-21/hjj-2",
+  "commit_id": "22267c911256d84751845a0710759f6cac20d8ec",
+  "task_type": "Bug修复",
+  "business_domain": "Web前端",
+  "change_scope": "模块内多文件",
+  "task_difficulty": "一般",
+  "task_completed": "完成了任务",
+  "satisfaction": "满意",
+  "dissatisfaction_reason": "",
+  "submitted_at": "2026-06-20 23:57"
+}

@@ -21,7 +21,7 @@ import type {
   ReworkTimelineEntry,
   ReworkStatusTransition,
 } from '../types'
-import { ProcessingStages, ReworkStatusLabels } from '../types'
+import { ProcessingStages, ReworkStatusLabels, type AttachmentFileType } from '../types'
 import { MockOrders } from '../mock/orders'
 import { MockClinics } from '../mock/clinics'
 import { useClinics } from './useClinics'
@@ -936,9 +936,20 @@ export function useOrders() {
     category: AttachmentCategory
     fileName: string
     fileSize?: number
-    fileType?: string
+    fileType?: AttachmentFileType
     uploadedBy: string
     description?: string
+  }
+
+  function determineFileTypeFromName(fileName: string): AttachmentFileType {
+    const ext = fileName.split('.').pop()?.toLowerCase() || ''
+    if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext)) return 'image'
+    if (ext === 'pdf') return 'pdf'
+    if (['doc', 'docx'].includes(ext)) return 'doc'
+    if (['xls', 'xlsx'].includes(ext)) return 'excel'
+    if (ext === 'stl') return 'stl'
+    if (['zip', 'rar', '7z'].includes(ext)) return 'zip'
+    return 'other'
   }
 
   function addAttachment(
@@ -957,10 +968,13 @@ export function useOrders() {
       category: params.category,
       fileName: params.fileName,
       fileSize: params.fileSize,
-      fileType: params.fileType,
+      fileType: params.fileType || determineFileTypeFromName(params.fileName),
       uploadedBy: params.uploadedBy,
       uploadedAt: now,
       description: params.description,
+      stage: 'general',
+      version: 'v1.0',
+      isPublic: true,
     }
 
     order.attachments.push(attachment)

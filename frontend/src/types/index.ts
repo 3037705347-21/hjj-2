@@ -364,6 +364,9 @@ export type AttachmentCategory =
   | 'facial-photo'
   | 'design-draft'
   | 'logistics-receipt'
+  | 'quality-report'
+  | 'rework-document'
+  | 'other-document'
 
 export const AttachmentCategoryLabels: Record<AttachmentCategory, string> = {
   'intraoral-scan': '口扫文件',
@@ -371,6 +374,9 @@ export const AttachmentCategoryLabels: Record<AttachmentCategory, string> = {
   'facial-photo': '面像照片',
   'design-draft': '设计稿',
   'logistics-receipt': '物流回单',
+  'quality-report': '质检报告',
+  'rework-document': '返工单据',
+  'other-document': '其他文档',
 }
 
 export const AttachmentCategoryColors: Record<AttachmentCategory, string> = {
@@ -379,20 +385,100 @@ export const AttachmentCategoryColors: Record<AttachmentCategory, string> = {
   'facial-photo': 'bg-pink-50 text-pink-700 border-pink-200',
   'design-draft': 'bg-violet-50 text-violet-700 border-violet-200',
   'logistics-receipt': 'bg-amber-50 text-amber-700 border-amber-200',
+  'quality-report': 'bg-teal-50 text-teal-700 border-teal-200',
+  'rework-document': 'bg-rose-50 text-rose-700 border-rose-200',
+  'other-document': 'bg-slate-50 text-slate-700 border-slate-200',
+}
+
+export type AttachmentFileType =
+  | 'image'
+  | 'pdf'
+  | 'doc'
+  | 'excel'
+  | 'stl'
+  | 'zip'
+  | 'other'
+
+export const AttachmentFileTypeLabels: Record<AttachmentFileType, string> = {
+  'image': '图片',
+  'pdf': 'PDF文档',
+  'doc': 'Word文档',
+  'excel': 'Excel表格',
+  'stl': '3D模型(STL)',
+  'zip': '压缩包',
+  'other': '其他',
+}
+
+export const AttachmentFileTypeColors: Record<AttachmentFileType, string> = {
+  'image': 'bg-pink-50 text-pink-700 border-pink-200',
+  'pdf': 'bg-red-50 text-red-700 border-red-200',
+  'doc': 'bg-blue-50 text-blue-700 border-blue-200',
+  'excel': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'stl': 'bg-violet-50 text-violet-700 border-violet-200',
+  'zip': 'bg-amber-50 text-amber-700 border-amber-200',
+  'other': 'bg-slate-50 text-slate-700 border-slate-200',
+}
+
+export type AttachmentRelatedModule =
+  | 'order'
+  | 'rework'
+  | 'quality'
+  | 'logistics'
+
+export const AttachmentRelatedModuleLabels: Record<AttachmentRelatedModule, string> = {
+  'order': '订单',
+  'rework': '返工',
+  'quality': '质检',
+  'logistics': '物流',
+}
+
+export const AttachmentRelatedModuleColors: Record<AttachmentRelatedModule, string> = {
+  'order': 'bg-blue-50 text-blue-700 border-blue-200',
+  'rework': 'bg-rose-50 text-rose-700 border-rose-200',
+  'quality': 'bg-teal-50 text-teal-700 border-teal-200',
+  'logistics': 'bg-amber-50 text-amber-700 border-amber-200',
+}
+
+export interface AttachmentRelation {
+  module: AttachmentRelatedModule
+  recordId: string
+  recordTitle?: string
+  linkedAt: string
+  linkedBy: string
+}
+
+export interface AttachmentVersion {
+  version: string
+  fileName: string
+  fileSize?: number
+  uploadedBy: string
+  uploadedAt: string
+  changeLog?: string
+  url?: string
 }
 
 export interface Attachment {
   id: string
   orderId: string
+  orderNumber?: string
+  clinicId?: string
+  clinicName?: string
   category: AttachmentCategory
   fileName: string
   fileSize?: number
-  fileType?: string
+  fileType: AttachmentFileType
   uploadedBy: string
   uploadedAt: string
+  stage: ProcessingStage | 'general'
+  stageLabel?: string
+  version: string
+  versions?: AttachmentVersion[]
+  isPublic: boolean
+  remark?: string
   url?: string
   thumbnailUrl?: string
   description?: string
+  relations?: AttachmentRelation[]
 }
 
 export type CommunicationType =

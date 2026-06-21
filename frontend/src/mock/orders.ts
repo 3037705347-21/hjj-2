@@ -603,14 +603,14 @@ export const MockOrders: Order[] = [
 function generateMockAttachments(orderId: string, orderCreatedAt: string): Attachment[] {
   const baseDate = new Date(orderCreatedAt)
   const hoursLater = (h: number) => new Date(baseDate.getTime() + h * 3600000)
-  const attachments: Attachment[] = [
+  const attachments: Omit<Attachment, 'stage' | 'version' | 'isPublic'>[] = [
     {
       id: `A-${orderId}-1`,
       orderId,
       category: 'intraoral-scan',
       fileName: `${orderId}_口扫数据.stl`,
       fileSize: 15 * 1024 * 1024,
-      fileType: 'model/stl',
+      fileType: 'stl',
       uploadedBy: '调度员-陈',
       uploadedAt: formatDate(hoursLater(0.5)),
       description: '患者口内三维扫描数据',
@@ -621,7 +621,7 @@ function generateMockAttachments(orderId: string, orderCreatedAt: string): Attac
       category: 'prescription-photo',
       fileName: `${orderId}_处方单.jpg`,
       fileSize: 2.3 * 1024 * 1024,
-      fileType: 'image/jpeg',
+      fileType: 'image',
       uploadedBy: '调度员-陈',
       uploadedAt: formatDate(hoursLater(1)),
       description: '医生签字处方单扫描件',
@@ -634,7 +634,7 @@ function generateMockAttachments(orderId: string, orderCreatedAt: string): Attac
       category: 'facial-photo',
       fileName: `${orderId}_正面像.jpg`,
       fileSize: 3.1 * 1024 * 1024,
-      fileType: 'image/jpeg',
+      fileType: 'image',
       uploadedBy: '调度员-吴',
       uploadedAt: formatDate(hoursLater(1.5)),
       description: '患者面部正面照片',
@@ -645,7 +645,7 @@ function generateMockAttachments(orderId: string, orderCreatedAt: string): Attac
       category: 'facial-photo',
       fileName: `${orderId}_侧面像.jpg`,
       fileSize: 2.8 * 1024 * 1024,
-      fileType: 'image/jpeg',
+      fileType: 'image',
       uploadedBy: '调度员-吴',
       uploadedAt: formatDate(hoursLater(1.5)),
       description: '患者面部侧面照片',
@@ -658,7 +658,7 @@ function generateMockAttachments(orderId: string, orderCreatedAt: string): Attac
       category: 'design-draft',
       fileName: `${orderId}_设计方案.pdf`,
       fileSize: 5.6 * 1024 * 1024,
-      fileType: 'application/pdf',
+      fileType: 'pdf',
       uploadedBy: '张技师',
       uploadedAt: formatDate(hoursLater(24)),
       description: '修复体设计方案及咬合分析',
@@ -671,13 +671,18 @@ function generateMockAttachments(orderId: string, orderCreatedAt: string): Attac
       category: 'logistics-receipt',
       fileName: `${orderId}_物流回单.jpg`,
       fileSize: 1.2 * 1024 * 1024,
-      fileType: 'image/jpeg',
+      fileType: 'image',
       uploadedBy: '调度员-陈',
       uploadedAt: formatDate(hoursLater(72)),
       description: '顺丰快递签收单',
     })
   }
-  return attachments
+  return attachments.map((a) => ({
+    stage: 'general' as const,
+    version: 'v1.0',
+    isPublic: true,
+    ...a,
+  }))
 }
 
 function generateMockCommunications(orderId: string, orderCreatedAt: string, currentStage: ProcessingStage, hasReturn: boolean): Communication[] {
