@@ -23,6 +23,7 @@ import NotificationList from '@/pages/NotificationList.vue'
 import NotificationSettings from '@/pages/NotificationSettings.vue'
 import AttachmentList from '@/pages/AttachmentList.vue'
 import AttachmentDetail from '@/pages/AttachmentDetail.vue'
+import DictionaryConfig from '@/pages/DictionaryConfig.vue'
 
 const routes = [
   {
@@ -180,6 +181,12 @@ const routes = [
     name: 'attachment-detail',
     component: AttachmentDetail,
     meta: { title: '附件详情' },
+  },
+  {
+    path: '/settings/dictionary',
+    name: 'dictionary-config',
+    component: DictionaryConfig,
+    meta: { title: '数据字典管理' },
   },
 ]
 

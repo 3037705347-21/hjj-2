@@ -28,6 +28,7 @@ import {
 } from 'lucide-vue-next'
 import { useOrders } from '../composables/useOrders'
 import { useClinics } from '../composables/useClinics'
+import { useDictionaries } from '../composables/useDictionaries'
 import type {
   Tooth,
   ToothWorkItem,
@@ -40,12 +41,6 @@ import type {
   Clinic,
 } from '../types'
 import { SettlementMethodLabels, CooperationStatusLabels, CooperationStatusColors } from '../types'
-import {
-  RestorationTypeLabels,
-  MaterialTypeLabels,
-  ImpressionMethodLabels,
-  PriorityLabels,
-} from '../types'
 import { ShadeGuides, PermanentTeeth } from '../config/teeth'
 import { cn } from '../lib/utils'
 
@@ -61,6 +56,13 @@ const {
   generateAnonymousCode,
 } = useOrders()
 const { getClinicById } = useClinics()
+const {
+  restorationTypeLabels,
+  materialTypeLabels,
+  impressionMethodLabels,
+  priorityLabels,
+  shadeGuideOptions,
+} = useDictionaries()
 
 type FormMode = 'create' | 'edit' | 'copy'
 
@@ -510,7 +512,7 @@ const availableRestorationTypes: RestorationType[] = [
 
 const fullArchRestorationTypes: RestorationType[] = ['full-denture', 'partial-denture']
 
-const allRestorationLabels = { ...RestorationTypeLabels }
+const allRestorationLabels = computed(() => ({ ...restorationTypeLabels.value }))
 </script>
 
 <template>
@@ -940,7 +942,7 @@ const allRestorationLabels = { ...RestorationTypeLabels }
                     class="w-full px-3 py-2 text-sm bg-white border border-violet-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500"
                   >
                     <option
-                      v-for="(label, key) in MaterialTypeLabels"
+                      v-for="(label, key) in materialTypeLabels"
                       :key="key"
                       :value="key"
                     >
@@ -1164,7 +1166,7 @@ const allRestorationLabels = { ...RestorationTypeLabels }
                     class="w-full px-3 py-2 text-sm bg-white border border-amber-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
                   >
                     <option
-                      v-for="(label, key) in MaterialTypeLabels"
+                      v-for="(label, key) in materialTypeLabels"
                       :key="key"
                       :value="key"
                     >
@@ -1253,7 +1255,7 @@ const allRestorationLabels = { ...RestorationTypeLabels }
                     class="w-full px-3 py-2 text-sm bg-white border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option
-                      v-for="(label, key) in MaterialTypeLabels"
+                      v-for="(label, key) in materialTypeLabels"
                       :key="key"
                       :value="key"
                     >
@@ -1330,9 +1332,9 @@ const allRestorationLabels = { ...RestorationTypeLabels }
                     </span>
                     <div class="min-w-0">
                       <div class="font-medium text-slate-800 text-sm">
-                        {{ RestorationTypeLabels[item.restorationType] }}
+                        {{ restorationTypeLabels[item.restorationType] }}
                         <span class="text-slate-400 mx-1">·</span>
-                        {{ MaterialTypeLabels[item.material] }}
+                        {{ materialTypeLabels[item.material] }}
                         <span class="text-slate-400 mx-1">·</span>
                         <span class="font-mono text-xs">{{ item.shade }}</span>
                       </div>
@@ -1427,7 +1429,7 @@ const allRestorationLabels = { ...RestorationTypeLabels }
                 class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option
-                  v-for="(label, key) in ImpressionMethodLabels"
+                  v-for="(label, key) in impressionMethodLabels"
                   :key="key"
                   :value="key"
                 >
@@ -1458,7 +1460,7 @@ const allRestorationLabels = { ...RestorationTypeLabels }
               </label>
               <div class="grid grid-cols-3 gap-2">
                 <label
-                  v-for="(label, key) in PriorityLabels"
+                  v-for="(label, key) in priorityLabels"
                   :key="key"
                   class="flex flex-col items-center justify-center gap-1 px-2 py-2.5 text-sm border rounded-lg cursor-pointer transition-colors"
                   :class="[
@@ -1535,7 +1537,7 @@ const allRestorationLabels = { ...RestorationTypeLabels }
                   class="text-right font-medium"
                   :class="form.priority === 'standard' ? 'text-slate-700' : form.priority === 'urgent' ? 'text-amber-700' : 'text-rose-700'"
                 >
-                  {{ PriorityLabels[form.priority] }}
+                  {{ priorityLabels[form.priority] }}
                 </div>
               </div>
             </div>

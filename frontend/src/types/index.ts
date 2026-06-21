@@ -1438,3 +1438,108 @@ export interface NotificationSetting {
   roleEnabled: Record<NotificationRole, boolean>
 }
 
+export type DictionaryCategory =
+  | 'restoration_type'
+  | 'material_type'
+  | 'shade_guide'
+  | 'impression_method'
+  | 'processing_stage'
+  | 'priority'
+  | 'order_status'
+  | 'rework_status'
+  | 'rework_problem_type'
+  | 'rework_root_cause'
+  | 'rework_responsibility'
+  | 'rework_source_stage'
+  | 'technician_skill'
+  | 'technician_status'
+  | 'task_status'
+  | 'task_priority'
+  | 'exception_type'
+  | 'logistics_type'
+  | 'sign_status'
+  | 'logistics_exception_type'
+  | 'shipping_method'
+  | 'cooperation_status'
+  | 'settlement_method'
+  | 'attachment_category'
+  | 'attachment_file_type'
+  | 'attachment_related_module'
+  | 'communication_type'
+  | 'quality_inspection_stage'
+  | 'quality_check_result'
+  | 'quality_inspection_status'
+  | 'defect_severity'
+  | 'price_rule_status'
+  | 'invoice_status'
+  | 'statement_status'
+  | 'technician_level'
+  | 'notification_type'
+  | 'notification_role'
+  | 'notification_handle_status'
+  | 'notification_category'
+
+export const DictionaryCategoryLabels: Record<DictionaryCategory, string> = {
+  'restoration_type': '修复类型',
+  'material_type': '材料类型',
+  'shade_guide': '比色',
+  'impression_method': '取模方式',
+  'processing_stage': '加工阶段',
+  'priority': '优先级',
+  'order_status': '订单状态',
+  'rework_status': '返工状态',
+  'rework_problem_type': '返工问题类型',
+  'rework_root_cause': '返工根本原因',
+  'rework_responsibility': '返工责任方',
+  'rework_source_stage': '返工来源阶段',
+  'technician_skill': '技师技能',
+  'technician_status': '技师状态',
+  'task_status': '任务状态',
+  'task_priority': '任务优先级',
+  'exception_type': '异常类型',
+  'logistics_type': '物流类型',
+  'sign_status': '签收状态',
+  'logistics_exception_type': '物流异常类型',
+  'shipping_method': '发货方式',
+  'cooperation_status': '合作状态',
+  'settlement_method': '结算方式',
+  'attachment_category': '附件分类',
+  'attachment_file_type': '附件文件类型',
+  'attachment_related_module': '附件关联模块',
+  'communication_type': '沟通类型',
+  'quality_inspection_stage': '质检阶段',
+  'quality_check_result': '质检结果',
+  'quality_inspection_status': '质检状态',
+  'defect_severity': '缺陷严重程度',
+  'price_rule_status': '价格规则状态',
+  'invoice_status': '发票状态',
+  'statement_status': '对账单状态',
+  'technician_level': '技师等级',
+  'notification_type': '通知类型',
+  'notification_role': '通知角色',
+  'notification_handle_status': '通知处理状态',
+  'notification_category': '通知分类',
+}
+
+export interface DictionaryItem {
+  id: string
+  category: DictionaryCategory
+  code: string
+  name: string
+  sortOrder: number
+  enabled: boolean
+  description?: string
+  isSystemBuiltin: boolean
+  color?: string
+  icon?: string
+  extra?: Record<string, any>
+  createdAt: string
+  updatedAt: string
+}
+
+export interface DictionaryFilter {
+  category?: DictionaryCategory
+  keyword?: string
+  enabled?: boolean
+}
+

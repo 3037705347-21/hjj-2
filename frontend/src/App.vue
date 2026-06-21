@@ -27,6 +27,7 @@ import {
   Receipt,
   Calculator,
   Database,
+  BookOpen,
 } from 'lucide-vue-next'
 import { 
   useRoles, 
@@ -49,10 +50,12 @@ import {
 import { provideTechnicians } from './composables/useTechnicians'
 import { provideNotificationSystem, useNotifications } from './composables/useNotifications'
 import { registerNotificationGenerator, useOrders } from './composables/useOrders'
+import { provideDictionaries } from './composables/useDictionaries'
 
 provideRole()
 provideTechnicians()
 provideNotificationSystem()
+provideDictionaries()
 
 const { unreadCount, generateStageCompleted, generateReworkInitiated, generateStatOrder, generateOverdueWarning, generateAttachmentMissing, generateDeliveryToday } = useNotifications()
 
@@ -129,6 +132,7 @@ const navItems = computed(() => {
       { label: '附件中心', icon: Database, path: '/attachments', badge: null },
       { label: '通知中心', icon: Bell, path: '/notifications', badge: unreadCount.value || null },
       { label: '数据统计', icon: BarChart3, path: '/', badge: null },
+      { label: '数据字典', icon: BookOpen, path: '/settings/dictionary', badge: null },
       { label: '系统设置', icon: Settings, path: '/', badge: null }
     )
   }
@@ -207,6 +211,8 @@ const breadcrumbs = computed(() => {
   } else if (route.name === 'attachment-detail') {
     items.push({ label: '附件中心', path: '/attachments' })
     items.push({ label: '附件详情' })
+  } else if (route.name === 'dictionary-config') {
+    items.push({ label: '数据字典管理' })
   }
   return items
 })

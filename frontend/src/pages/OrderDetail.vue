@@ -65,26 +65,14 @@ import { useLogistics } from '../composables/useLogistics'
 import { useQualityInspection } from '../composables/useQualityInspection'
 import { useNotifications } from '../composables/useNotifications'
 import { useAttachments } from '../composables/useAttachments'
+import { useDictionaries } from '../composables/useDictionaries'
 import OrderNotificationStream from '../components/OrderNotificationStream.vue'
 import type { StageHistoryEntry, ProcessingStage, ReturnRecord, ReworkStatus, ReworkSourceStage, ReworkProblemType, ReworkRootCause, ReworkResponsibility, TaskAssignment, TaskPriority } from '../types'
 import {
   ProcessingStages,
-  RestorationTypeLabels,
-  MaterialTypeLabels,
-  ImpressionMethodLabels,
-  ReworkStatusLabels,
   ReworkStatusColors,
-  ReworkSourceStageLabels,
-  ReworkProblemTypeLabels,
-  ReworkRootCauseLabels,
-  ReworkResponsibilityLabels,
-  TaskStatusLabels,
   TaskStatusColors,
-  TaskPriorityLabels,
   TaskPriorityColors,
-  TechnicianSkillLabels,
-  ShippingMethodLabels,
-  SignStatusLabels,
   SignStatusColors,
   type LogisticsRecord,
   type LogisticsTimelineEntry,
@@ -137,6 +125,22 @@ const { getLogisticsByOrderId } = useLogistics()
 const { getInspectionsByOrder } = useQualityInspection()
 
 const { getAttachmentsByOrderId } = useAttachments()
+
+const {
+  restorationTypeLabels,
+  materialTypeLabels,
+  impressionMethodLabels,
+  reworkStatusLabels,
+  reworkSourceStageLabels,
+  reworkProblemTypeLabels,
+  reworkRootCauseLabels,
+  reworkResponsibilityLabels,
+  taskStatusLabels,
+  taskPriorityLabels,
+  technicianSkillLabels,
+  shippingMethodLabels,
+  signStatusLabels,
+} = useDictionaries()
 
 const orderQualityInspections = computed(() => {
   if (!order.value) return []
@@ -951,13 +955,13 @@ function goToQuote() {
                         class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border"
                         :class="TaskStatusColors[getTaskForStage(entry.stage)!.status]"
                       >
-                        {{ TaskStatusLabels[getTaskForStage(entry.stage)!.status] }}
+                        {{ taskStatusLabels[getTaskForStage(entry.stage)!.status] }}
                       </span>
                       <span
                         class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border"
                         :class="TaskPriorityColors[getTaskForStage(entry.stage)!.priority]"
                       >
-                        {{ TaskPriorityLabels[getTaskForStage(entry.stage)!.priority] }}优先级
+                        {{ taskPriorityLabels[getTaskForStage(entry.stage)!.priority] }}优先级
                       </span>
                       <span
                         v-if="(getTaskForStage(entry.stage)!.reworkCount || 0) > 0"
@@ -1089,7 +1093,7 @@ function goToQuote() {
                     class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium"
                     :class="SignStatusColors[logistic.signStatus]"
                   >
-                    {{ SignStatusLabels[logistic.signStatus] }}
+                    {{ signStatusLabels[logistic.signStatus] }}
                   </span>
                   <span
                     class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-700"
@@ -1100,7 +1104,7 @@ function goToQuote() {
                     {{ logistic.trackingNumber }}
                   </span>
                   <span class="text-xs text-slate-500">
-                    {{ ShippingMethodLabels[logistic.shippingMethod] }}
+                    {{ shippingMethodLabels[logistic.shippingMethod] }}
                   </span>
                 </div>
                 <button
@@ -1272,14 +1276,14 @@ function goToQuote() {
                     #{{ idx + 1 }}
                   </span>
                   <span class="font-medium text-slate-800 text-sm">
-                    {{ ReworkSourceStageLabels[record.sourceStage] }}
+                    {{ reworkSourceStageLabels[record.sourceStage] }}
                     来源
                   </span>
                   <span
                     class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium border"
                     :class="ReworkStatusColors[record.status]"
                   >
-                    {{ ReworkStatusLabels[record.status] }}
+                    {{ reworkStatusLabels[record.status] }}
                   </span>
                   <span
                     v-if="record.recheckResult"
@@ -1301,13 +1305,13 @@ function goToQuote() {
 
               <div class="flex flex-wrap gap-1.5 mb-3">
                 <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                  {{ ReworkProblemTypeLabels[record.problemType] }}
+                  {{ reworkProblemTypeLabels[record.problemType] }}
                 </span>
                 <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                  {{ ReworkRootCauseLabels[record.rootCause] }}
+                  {{ reworkRootCauseLabels[record.rootCause] }}
                 </span>
                 <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                  {{ ReworkResponsibilityLabels[record.responsibility] }}
+                  {{ reworkResponsibilityLabels[record.responsibility] }}
                 </span>
                 <span
                   v-for="tooth in record.relatedTeeth.slice(0, 5)"
@@ -1659,13 +1663,13 @@ function goToQuote() {
                           class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium border"
                           :class="TaskStatusColors[getTaskForStage(stage.stage)!.status]"
                         >
-                          {{ TaskStatusLabels[getTaskForStage(stage.stage)!.status] }}
+                          {{ taskStatusLabels[getTaskForStage(stage.stage)!.status] }}
                         </span>
                         <span
                           class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium border"
                           :class="TaskPriorityColors[getTaskForStage(stage.stage)!.priority]"
                         >
-                          {{ TaskPriorityLabels[getTaskForStage(stage.stage)!.priority] }}
+                          {{ taskPriorityLabels[getTaskForStage(stage.stage)!.priority] }}
                         </span>
                         <span
                           v-if="(getTaskForStage(stage.stage)!.reworkCount || 0) > 0"
@@ -1827,10 +1831,10 @@ function goToQuote() {
                   </span>
                   <div>
                     <div class="font-semibold text-slate-800 text-sm">
-                      {{ RestorationTypeLabels[item.restorationType] }}
+                      {{ restorationTypeLabels[item.restorationType] }}
                     </div>
                     <div class="text-xs text-slate-500">
-                      {{ MaterialTypeLabels[item.material] }}
+                      {{ materialTypeLabels[item.material] }}
                     </div>
                   </div>
                 </div>
@@ -1999,7 +2003,7 @@ function goToQuote() {
             >
               <span class="text-sm text-slate-600">取模方式</span>
               <span class="text-sm font-medium text-slate-800">
-                {{ ImpressionMethodLabels[order.impressionMethod] }}
+                {{ impressionMethodLabels[order.impressionMethod] }}
               </span>
             </div>
             <div
